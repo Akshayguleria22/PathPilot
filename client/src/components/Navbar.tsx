@@ -2,8 +2,15 @@
 
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { FaGraduationCap, FaBook, FaChartLine, FaCalendarCheck, FaSignOutAlt } from "react-icons/fa";
+import {
+  FaGraduationCap,
+  FaBook,
+  FaChartLine,
+  FaCalendarCheck,
+  FaSignOutAlt,
+} from "react-icons/fa";
 import { MdDashboard } from "react-icons/md";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -11,10 +18,16 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
-  const token = typeof window !== "undefined" && localStorage.getItem("token");
+  const [token, setToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Only access localStorage on the client side
+    setToken(localStorage.getItem("token"));
+  }, []);
 
   const logoutHandler = () => {
     localStorage.removeItem("token");
+    setToken(null);
     router.push("/login");
   };
 
@@ -33,20 +46,41 @@ export default function Navbar() {
       className="w-full px-6 py-4 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 shadow-sm sticky top-0 z-50 backdrop-blur-sm bg-white/80 dark:bg-zinc-900/80"
     >
       <div className="max-w-7xl mx-auto flex justify-between items-center">
-        <Link href="/" className="flex items-center gap-2 text-2xl font-bold tracking-wide hover:scale-105 transition-transform">
+        <Link
+          href="/"
+          className="flex items-center gap-2 text-2xl font-bold tracking-wide hover:scale-105 transition-transform"
+        >
           <FaGraduationCap className="text-3xl text-zinc-700 dark:text-zinc-300" />
-          <span className="text-zinc-800 dark:text-zinc-100">
-            PathPilot
-          </span>
+          <span className="text-zinc-800 dark:text-zinc-100">PathPilot</span>
         </Link>
-        
+
         <div className="flex items-center gap-3">
           {token ? (
             <>
-              <NavLink href="/" isActive={isActive("/")} icon={<MdDashboard />} label="Dashboard" />
-              <NavLink href="/courses" isActive={isActive("/courses")} icon={<FaBook />} label="Courses" />
-              <NavLink href="/habits" isActive={isActive("/habits")} icon={<FaCalendarCheck />} label="Habits" />
-              <NavLink href="/analytics" isActive={isActive("/analytics")} icon={<FaChartLine />} label="Analytics" />
+              <NavLink
+                href="/"
+                isActive={isActive("/")}
+                icon={<MdDashboard />}
+                label="Dashboard"
+              />
+              <NavLink
+                href="/courses"
+                isActive={isActive("/courses")}
+                icon={<FaBook />}
+                label="Courses"
+              />
+              <NavLink
+                href="/habits"
+                isActive={isActive("/habits")}
+                icon={<FaCalendarCheck />}
+                label="Habits"
+              />
+              <NavLink
+                href="/analytics"
+                isActive={isActive("/analytics")}
+                icon={<FaChartLine />}
+                label="Analytics"
+              />
               <ThemeToggle />
               <Button
                 onClick={logoutHandler}

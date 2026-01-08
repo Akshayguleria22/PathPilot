@@ -126,7 +126,63 @@
 
 html, body {
   height: 100%;
-  background-color: #fafafa;
+  @apply bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 dark:from-zinc-950 dark:via-blue-950/20 dark:to-purple-950/10;
+  background-attachment: fixed;
+}
+
+/* Animated Background Orbs */
+.bg-orbs {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.bg-orbs::before,
+.bg-orbs::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.15;
+  animation: float 20s ease-in-out infinite;
+}
+
+.bg-orbs::before {
+  width: 500px;
+  height: 500px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  top: 10%;
+  left: 10%;
+  animation-delay: -5s;
+}
+
+.bg-orbs::after {
+  width: 400px;
+  height: 400px;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  bottom: 10%;
+  right: 10%;
+  animation-delay: -10s;
+}
+
+/* Button Hover Effects */
+button, .btn {
+  @apply transition-all duration-200 ease-in-out;
+}
+
+button:hover:not(:disabled), .btn:hover:not(:disabled) {
+  @apply transform scale-[1.02] shadow-lg;
+}
+
+button:active:not(:disabled), .btn:active:not(:disabled) {
+  @apply transform scale-[0.98];
+}
+
+button:disabled, .btn:disabled {
+  @apply opacity-60 cursor-not-allowed;
 }
 
 /* Custom Animations */

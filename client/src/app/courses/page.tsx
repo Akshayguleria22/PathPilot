@@ -1,14 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { addCourse, getCourses } from "@/lib/api";
+import { addCourse, getCourses, generateRoadmap } from "@/lib/api";
 import Protected from "@/components/Protected";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { motion, AnimatePresence } from "framer-motion";
-import { FaBook, FaPlus, FaGraduationCap, FaTrophy, FaChartLine } from "react-icons/fa";
+import {
+  FaBook,
+  FaPlus,
+  FaGraduationCap,
+  FaTrophy,
+  FaChartLine,
+  FaTimes,
+} from "react-icons/fa";
 import { MdCategory, MdTimer } from "react-icons/md";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +27,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SkeletonCard, SkeletonStat } from "@/components/SkeletonCard";
+import Link from "next/link";
+import toast from "react-hot-toast";
 
 export default function Courses() {
   const [courses, setCourses] = useState([]);
@@ -30,22 +39,56 @@ export default function Courses() {
   });
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [generatingRoadmap, setGeneratingRoadmap] = useState<string | null>(
+    null
+  );
+  const [selectedCourse, setSelectedCourse] = useState<any>(null);
 
   const loadCourses = async () => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     const data = await getCourses();
     setCourses(data);
     setLoading(false);
   };
 
   const submit = async () => {
-    if (!form.name.trim()) return alert("Enter course name");
+    if (!form.name.trim()) {
+      toast.error("Please enter a course name");
+      return;
+    }
 
-    const res = await addCourse(form);
-    alert(res.message);
-    setForm({ name: "", category: "Academic", targetHours: 5 });
-    setShowForm(false);
-    loadCourses();
+    setSubmitting(true);
+    const toastId = toast.loading("Adding course...");
+
+    try {
+      const res = await addCourse(form);
+      toast.success(res.message || "Course added successfully!", {
+        id: toastId,
+      });
+      setForm({ name: "", category: "Academic", targetHours: 5 });
+      setShowForm(false);
+      loadCourses();
+    } catch (error) {
+      toast.error("Failed to add course", { id: toastId });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleGenerateRoadmap = async (courseId: string) => {
+    setGeneratingRoadmap(courseId);
+    const toastId = toast.loading("Generating roadmap...");
+
+    try {
+      await generateRoadmap(courseId);
+      toast.success("Roadmap generated successfully!", { id: toastId });
+    } catch (error) {
+      console.error("Error generating roadmap:", error);
+      toast.error("Failed to generate roadmap", { id: toastId });
+    } finally {
+      setGeneratingRoadmap(null);
+    }
   };
 
   useEffect(() => {
@@ -81,10 +124,16 @@ export default function Courses() {
                 <FaBook className="text-zinc-600 dark:text-zinc-400" />
                 My Courses
               </h1>
-              <p className="text-zinc-600 dark:text-zinc-400 mt-2 text-lg">Track and manage your learning journey</p>
+              <p className="text-zinc-600 dark:text-zinc-400 mt-2 text-lg">
+                Track and manage your learning journey
+              </p>
             </div>
-            
-            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ duration: 0.3 }}>
+
+            <motion.div
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ duration: 0.3 }}
+            >
               <Button
                 onClick={() => setShowForm(!showForm)}
                 className="bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-200 shadow-md h-12 px-6 text-lg transition-all duration-300"
@@ -106,12 +155,17 @@ export default function Courses() {
               >
                 <Card className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-lg">
                   <CardHeader>
-                    <CardTitle className="text-2xl text-zinc-800 dark:text-zinc-100">Add New Course</CardTitle>
+                    <CardTitle className="text-2xl text-zinc-800 dark:text-zinc-100">
+                      Add New Course
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid md:grid-cols-3 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="courseName" className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300 font-semibold">
+                        <Label
+                          htmlFor="courseName"
+                          className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300 font-semibold"
+                        >
                           <FaBook />
                           Course Name
                         </Label>
@@ -119,7 +173,9 @@ export default function Courses() {
                           id="courseName"
                           placeholder="e.g., Data Structures"
                           value={form.name}
-                          onChange={(e) => setForm({ ...form, name: e.target.value })}
+                          onChange={(e) =>
+                            setForm({ ...form, name: e.target.value })
+                          }
                           className="h-11"
                         />
                       </div>
@@ -129,7 +185,12 @@ export default function Courses() {
                           <MdCategory />
                           Category
                         </Label>
-                        <Select value={form.category} onValueChange={(value) => setForm({ ...form, category: value })}>
+                        <Select
+                          value={form.category}
+                          onValueChange={(value) =>
+                            setForm({ ...form, category: value })
+                          }
+                        >
                           <SelectTrigger className="h-11">
                             <SelectValue />
                           </SelectTrigger>
@@ -142,7 +203,10 @@ export default function Courses() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="targetHours" className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300 font-semibold">
+                        <Label
+                          htmlFor="targetHours"
+                          className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300 font-semibold"
+                        >
                           <MdTimer />
                           Target Hours/Week
                         </Label>
@@ -150,22 +214,32 @@ export default function Courses() {
                           id="targetHours"
                           type="number"
                           value={form.targetHours}
-                          onChange={(e) => setForm({ ...form, targetHours: Number(e.target.value) })}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              targetHours: Number(e.target.value),
+                            })
+                          }
                           className="h-11"
                         />
                       </div>
                     </div>
 
                     <div className="flex gap-3 justify-end pt-2">
-                      <Button variant="outline" onClick={() => setShowForm(false)}>
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowForm(false)}
+                        disabled={submitting}
+                      >
                         Cancel
                       </Button>
                       <Button
                         onClick={submit}
-                        className="bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900"
+                        disabled={submitting}
+                        className="bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-200"
                       >
                         <FaPlus className="mr-2" />
-                        Add Course
+                        {submitting ? "Adding..." : "Add Course"}
                       </Button>
                     </div>
                   </CardContent>
@@ -177,51 +251,97 @@ export default function Courses() {
           {/* Course Stats */}
           {loading ? (
             <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
-              {[...Array(4)].map((_, i) => <SkeletonStat key={i} />)}
+              {[...Array(4)].map((_, i) => (
+                <SkeletonStat key={i} />
+              ))}
             </div>
           ) : (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.7 }}
               className="grid sm:grid-cols-2 md:grid-cols-4 gap-4"
             >
-              <motion.div whileHover={{ scale: 1.03 }} transition={{ duration: 0.3 }} className="bg-zinc-100 dark:bg-zinc-800 rounded-xl p-6 shadow-md border border-zinc-200 dark:border-zinc-700">
+              <motion.div
+                whileHover={{ scale: 1.03 }}
+                transition={{ duration: 0.3 }}
+                className="bg-zinc-100 dark:bg-zinc-800 rounded-xl p-6 shadow-md border border-zinc-200 dark:border-zinc-700"
+              >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">Total Courses</p>
-                    <p className="text-4xl font-bold text-zinc-800 dark:text-zinc-100">{courses.length}</p>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                      Total Courses
+                    </p>
+                    <p className="text-4xl font-bold text-zinc-800 dark:text-zinc-100">
+                      {courses.length}
+                    </p>
                   </div>
                   <FaBook className="text-5xl text-zinc-400 dark:text-zinc-600" />
                 </div>
               </motion.div>
 
-              <motion.div whileHover={{ scale: 1.03 }} transition={{ duration: 0.3 }} className="bg-zinc-100 dark:bg-zinc-800 rounded-xl p-6 shadow-md border border-zinc-200 dark:border-zinc-700">
+              <motion.div
+                whileHover={{ scale: 1.03 }}
+                transition={{ duration: 0.3 }}
+                className="bg-zinc-100 dark:bg-zinc-800 rounded-xl p-6 shadow-md border border-zinc-200 dark:border-zinc-700"
+              >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">Academic</p>
-                    <p className="text-4xl font-bold text-zinc-800 dark:text-zinc-100">{courses.filter((c: any) => c.category === "Academic").length}</p>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                      Academic
+                    </p>
+                    <p className="text-4xl font-bold text-zinc-800 dark:text-zinc-100">
+                      {
+                        courses.filter((c: any) => c.category === "Academic")
+                          .length
+                      }
+                    </p>
                   </div>
                   <FaGraduationCap className="text-5xl text-zinc-400 dark:text-zinc-600" />
                 </div>
               </motion.div>
 
-              <motion.div whileHover={{ scale: 1.03 }} transition={{ duration: 0.3 }} className="bg-zinc-100 dark:bg-zinc-800 rounded-xl p-6 shadow-md border border-zinc-200 dark:border-zinc-700">
+              <motion.div
+                whileHover={{ scale: 1.03 }}
+                transition={{ duration: 0.3 }}
+                className="bg-zinc-100 dark:bg-zinc-800 rounded-xl p-6 shadow-md border border-zinc-200 dark:border-zinc-700"
+              >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">Skills</p>
-                    <p className="text-4xl font-bold text-zinc-800 dark:text-zinc-100">{courses.filter((c: any) => c.category === "Skill").length}</p>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                      Skills
+                    </p>
+                    <p className="text-4xl font-bold text-zinc-800 dark:text-zinc-100">
+                      {
+                        courses.filter((c: any) => c.category === "Skill")
+                          .length
+                      }
+                    </p>
                   </div>
                   <FaTrophy className="text-5xl text-zinc-400 dark:text-zinc-600" />
                 </div>
               </motion.div>
 
-              <motion.div whileHover={{ scale: 1.03 }} transition={{ duration: 0.3 }} className="bg-zinc-100 dark:bg-zinc-800 rounded-xl p-6 shadow-md border border-zinc-200 dark:border-zinc-700">
+              <motion.div
+                whileHover={{ scale: 1.03 }}
+                transition={{ duration: 0.3 }}
+                className="bg-zinc-100 dark:bg-zinc-800 rounded-xl p-6 shadow-md border border-zinc-200 dark:border-zinc-700"
+              >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">Avg Progress</p>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                      Avg Progress
+                    </p>
                     <p className="text-4xl font-bold text-zinc-800 dark:text-zinc-100">
-                      {courses.length > 0 ? Math.round(courses.reduce((acc: number, c: any) => acc + c.progress, 0) / courses.length) : 0}%
+                      {courses.length > 0
+                        ? Math.round(
+                            courses.reduce(
+                              (acc: number, c: any) => acc + c.progress,
+                              0
+                            ) / courses.length
+                          )
+                        : 0}
+                      %
                     </p>
                   </div>
                   <FaChartLine className="text-5xl text-zinc-400 dark:text-zinc-600" />
@@ -248,29 +368,43 @@ export default function Courses() {
                     <div className="flex items-start gap-3 p-4 bg-white dark:bg-zinc-900 rounded-lg">
                       <span className="text-2xl">🎯</span>
                       <div>
-                        <p className="font-semibold mb-1">Set Realistic Goals</p>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400">Start with achievable weekly hour targets and adjust based on your progress</p>
+                        <p className="font-semibold mb-1">
+                          Set Realistic Goals
+                        </p>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                          Start with achievable weekly hour targets and adjust
+                          based on your progress
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3 p-4 bg-white dark:bg-zinc-900 rounded-lg">
                       <span className="text-2xl">📅</span>
                       <div>
                         <p className="font-semibold mb-1">Categorize Wisely</p>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400">Use categories to prioritize - Academic for critical courses, Skills for development</p>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                          Use categories to prioritize - Academic for critical
+                          courses, Skills for development
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3 p-4 bg-white dark:bg-zinc-900 rounded-lg">
                       <span className="text-2xl">🔄</span>
                       <div>
                         <p className="font-semibold mb-1">Regular Updates</p>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400">Update your progress regularly to see meaningful trends in your analytics</p>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                          Update your progress regularly to see meaningful
+                          trends in your analytics
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3 p-4 bg-white dark:bg-zinc-900 rounded-lg">
                       <span className="text-2xl">⚖️</span>
                       <div>
                         <p className="font-semibold mb-1">Balance Your Load</p>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400">Distribute study hours across courses to avoid burnout and maintain quality</p>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                          Distribute study hours across courses to avoid burnout
+                          and maintain quality
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -282,7 +416,9 @@ export default function Courses() {
           {/* Course List */}
           {loading ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[...Array(3)].map((_, i) => <SkeletonCard key={i} />)}
+              {[...Array(3)].map((_, i) => (
+                <SkeletonCard key={i} />
+              ))}
             </div>
           ) : courses.length === 0 ? (
             <motion.div
@@ -292,8 +428,12 @@ export default function Courses() {
               className="text-center py-20"
             >
               <FaBook className="text-zinc-300 dark:text-zinc-700 text-8xl mx-auto mb-4" />
-              <h3 className="text-2xl font-bold text-zinc-400 dark:text-zinc-600 mb-2">No courses yet</h3>
-              <p className="text-zinc-500 dark:text-zinc-500">Click "Add New Course" to get started!</p>
+              <h3 className="text-2xl font-bold text-zinc-400 dark:text-zinc-600 mb-2">
+                No courses yet
+              </h3>
+              <p className="text-zinc-500 dark:text-zinc-500">
+                Click "Add New Course" to get started!
+              </p>
             </motion.div>
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -315,7 +455,9 @@ export default function Courses() {
                         <Badge className="w-fit mb-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700">
                           {course.category}
                         </Badge>
-                        <CardTitle className="text-2xl font-bold relative z-10 text-zinc-800 dark:text-zinc-100">{course.name}</CardTitle>
+                        <CardTitle className="text-2xl font-bold relative z-10 text-zinc-800 dark:text-zinc-100">
+                          {course.name}
+                        </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <div className="flex items-center justify-between bg-zinc-100 dark:bg-zinc-800 rounded-lg p-3">
@@ -323,13 +465,19 @@ export default function Courses() {
                             <MdTimer className="text-xl" />
                             <span>Target</span>
                           </div>
-                          <span className="font-bold text-lg text-zinc-800 dark:text-zinc-100">{course.targetHours} hrs/week</span>
+                          <span className="font-bold text-lg text-zinc-800 dark:text-zinc-100">
+                            {course.targetHours} hrs/week
+                          </span>
                         </div>
 
                         <div className="space-y-2">
                           <div className="flex justify-between items-center">
-                            <span className="text-sm text-zinc-600 dark:text-zinc-400">Progress</span>
-                            <span className="font-bold text-lg text-zinc-800 dark:text-zinc-100">{course.progress}%</span>
+                            <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                              Progress
+                            </span>
+                            <span className="font-bold text-lg text-zinc-800 dark:text-zinc-100">
+                              {course.progress}%
+                            </span>
                           </div>
                           <Progress value={course.progress} className="h-3" />
                         </div>
@@ -338,10 +486,26 @@ export default function Courses() {
                           whileHover={{ scale: 1.03 }}
                           whileTap={{ scale: 0.97 }}
                           transition={{ duration: 0.3 }}
+                          onClick={() => setSelectedCourse(course)}
                           className="w-full bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-200 rounded-lg py-3 font-semibold transition-all duration-300"
                         >
                           View Details
                         </motion.button>
+                        <button
+                          className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                          onClick={() => handleGenerateRoadmap(course._id)}
+                          disabled={generatingRoadmap === course._id}
+                        >
+                          {generatingRoadmap === course._id
+                            ? "Generating..."
+                            : "Generate Roadmap"}
+                        </button>
+                        <Link
+                          href={`/roadmap/${course._id}`}
+                          className="text-green-600 dark:text-green-400 hover:underline mt-2 block text-sm"
+                        >
+                          View Roadmap →
+                        </Link>
                       </CardContent>
                     </Card>
                   </motion.div>
@@ -350,6 +514,104 @@ export default function Courses() {
             </div>
           )}
         </div>
+
+        {/* Course Details Modal */}
+        <AnimatePresence>
+          {selectedCourse && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              onClick={() => setSelectedCourse(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                transition={{ type: "spring", duration: 0.5 }}
+                className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-2xl w-full p-8 relative"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => setSelectedCourse(null)}
+                  className="absolute top-4 right-4 p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  <FaTimes className="text-xl text-zinc-600 dark:text-zinc-400" />
+                </button>
+
+                <div className="space-y-6">
+                  <div>
+                    <Badge className="mb-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700">
+                      {selectedCourse.category}
+                    </Badge>
+                    <h2 className="text-3xl font-bold text-zinc-800 dark:text-zinc-100 mb-2">
+                      {selectedCourse.name}
+                    </h2>
+                    <p className="text-zinc-600 dark:text-zinc-400">
+                      Track your progress and stay on top of your learning goals
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 mb-2">
+                        <MdTimer className="text-xl" />
+                        <span className="text-sm">Weekly Target</span>
+                      </div>
+                      <p className="text-2xl font-bold text-zinc-800 dark:text-zinc-100">
+                        {selectedCourse.targetHours} hours
+                      </p>
+                    </div>
+
+                    <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 mb-2">
+                        <FaChartLine className="text-xl" />
+                        <span className="text-sm">Progress</span>
+                      </div>
+                      <p className="text-2xl font-bold text-zinc-800 dark:text-zinc-100">
+                        {selectedCourse.progress}%
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-zinc-600 dark:text-zinc-400">
+                        Overall Progress
+                      </span>
+                      <span className="font-semibold text-zinc-800 dark:text-zinc-100">
+                        {selectedCourse.progress}%
+                      </span>
+                    </div>
+                    <Progress value={selectedCourse.progress} className="h-3" />
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <Link
+                      href={`/roadmap/${selectedCourse._id}`}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 font-semibold text-center transition-all"
+                    >
+                      View Roadmap
+                    </Link>
+                    <button
+                      onClick={() => {
+                        handleGenerateRoadmap(selectedCourse._id);
+                        setSelectedCourse(null);
+                      }}
+                      disabled={generatingRoadmap === selectedCourse._id}
+                      className="flex-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg py-3 font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {generatingRoadmap === selectedCourse._id
+                        ? "Generating..."
+                        : "Generate Roadmap"}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </Protected>
   );

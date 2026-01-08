@@ -6,6 +6,9 @@ import courseRoutes from "./routes/courseRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import habitRoutes from "./routes/habitRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
+import roadmapRoutes from "./routes/roadmapsRoutes.js";
+import assessmentRoutes from "./routes/assessmentRoutes.js";
+import dailyLogRoutes from "./routes/dailylogRoutes.js";
 
 
 dotenv.config();
@@ -24,6 +27,10 @@ app.use("/api/users", userRoutes);
 app.use("/api/courses", courseRoutes);
 app.use("/api/habits", habitRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/roadmap", roadmapRoutes);
+app.use("/api/assessment", assessmentRoutes);
+app.use("/api/daily-log", dailyLogRoutes);
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));

@@ -89,3 +89,130 @@ export const getTodayHabit = async () => {
 export const getCoursesList = async () => {
     return getCourses(); // reuse course fetch helper
 };
+export const generateRoadmap = async (courseId: string) => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(
+        `${API_URL}/api/roadmap/generate/${courseId}`,
+        {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        }
+    );
+    return res.json();
+};
+
+export const getRoadmap = async (courseId: string) => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(
+        `${API_URL}/api/roadmap/${courseId}`,
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        }
+    );
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data.message || "Failed to fetch roadmap");
+    }
+    return data;
+};
+
+export const updateRoadmapStep = async (
+    courseId: string,
+    stepIndex: number,
+    status: "pending" | "in-progress" | "completed"
+) => {
+    const token = localStorage.getItem("token");
+
+    const res = await fetch(
+        `${API_URL}/api/roadmap/${courseId}/step/${stepIndex}`,
+        {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ status }),
+        }
+    );
+
+    return res.json();
+};
+
+export const submitAssessment = async (
+    courseId: string,
+    score: number,
+    confidence: number
+) => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API_URL}/api/assessment/${courseId}`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ score, confidence }),
+    });
+    return res.json();
+};
+
+export const getAIRoadmapAdvice = async (courseId: string) => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API_URL}/api/roadmap/adapt/${courseId}`, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data.message || "AI needs more data to adapt the roadmap.");
+    }
+    return data;
+};
+
+export const autoAdaptRoadmap = async (courseId: string) => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API_URL}/api/roadmap/adapt/${courseId}`, {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data.message || "AI needs more data.");
+    }
+    return data;
+};
+
+export const submitTodayLog = async (data: any) => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/daily-log/today`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(data),
+        }
+    );
+    return res.json();
+};
+
+export const getWeeklyLogs = async () => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/daily-log/week`,
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        }
+    );
+    return res.json();
+};
