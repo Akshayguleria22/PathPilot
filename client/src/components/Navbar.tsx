@@ -10,6 +10,8 @@ import {
   FaChartLine,
   FaCalendarCheck,
   FaSignOutAlt,
+  FaCalendar,
+  FaTrophy,
 } from "react-icons/fa";
 import { MdDashboard } from "react-icons/md";
 import { Button } from "@/components/ui/button";
@@ -58,8 +60,8 @@ export default function Navbar() {
           {token ? (
             <>
               <NavLink
-                href="/"
-                isActive={isActive("/")}
+                href="/dashboard"
+                isActive={isActive("/dashboard")}
                 icon={<MdDashboard />}
                 label="Dashboard"
               />
@@ -80,6 +82,18 @@ export default function Navbar() {
                 isActive={isActive("/analytics")}
                 icon={<FaChartLine />}
                 label="Analytics"
+              />
+              <NavLink
+                href="/calendar"
+                isActive={isActive("/calendar")}
+                icon={<FaCalendar />}
+                label="Calendar"
+              />
+              <NavLink
+                href="/badges"
+                isActive={isActive("/badges")}
+                icon={<FaTrophy />}
+                label="Badges"
               />
               <ThemeToggle />
               <Button

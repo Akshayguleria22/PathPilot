@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import {
   FaGraduationCap,
   FaChartLine,
@@ -18,16 +17,8 @@ import {
   FaCheck,
 } from "react-icons/fa";
 
-export default function Home() {
+export default function LandingPage() {
   const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    const token = localStorage.getItem("token");
-    setIsLoggedIn(!!token);
-  }, []);
 
   const features = [
     {
@@ -128,40 +119,24 @@ export default function Home() {
               transition={{ delay: 0.6 }}
               className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4"
             >
-              {!mounted ? (
-                <div className="h-14 w-64" />
-              ) : isLoggedIn ? (
-                <Link href="/dashboard">
-                  <Button
-                    size="lg"
-                    className="h-14 px-8 text-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 shadow-lg hover:shadow-xl transition-all duration-300 group"
-                  >
-                    Go to Dashboard
-                    <FaArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                </Link>
-              ) : (
-                <>
-                  <Link href="/register">
-                    <Button
-                      size="lg"
-                      className="h-14 px-8 text-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 shadow-lg hover:shadow-xl transition-all duration-300 group"
-                    >
-                      Get Started Free
-                      <FaArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
-                    </Button>
-                  </Link>
-                  <Link href="/login">
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      className="h-14 px-8 text-lg border-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-900 hover:text-white dark:hover:bg-zinc-100 dark:hover:text-zinc-900 transition-all duration-300"
-                    >
-                      Sign In
-                    </Button>
-                  </Link>
-                </>
-              )}
+              <Link href="/register">
+                <Button
+                  size="lg"
+                  className="h-14 px-8 text-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 shadow-lg hover:shadow-xl transition-all duration-300 group"
+                >
+                  Get Started Free
+                  <FaArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </Link>
+              <Link href="/login">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-14 px-8 text-lg border-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-900 hover:text-white dark:hover:bg-zinc-100 dark:hover:text-zinc-900 transition-all duration-300"
+                >
+                  Sign In
+                </Button>
+              </Link>
             </motion.div>
           </motion.div>
         </div>
@@ -311,21 +286,17 @@ export default function Home() {
           className="relative max-w-4xl mx-auto text-center px-6"
         >
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-            {mounted && isLoggedIn
-              ? "Continue Your Journey to Excellence"
-              : "Ready to Transform Your Academic Life?"}
+            Ready to Transform Your Academic Life?
           </h2>
           <p className="text-xl text-white/90 mb-8">
-            {mounted && isLoggedIn
-              ? "Access your dashboard and track your progress today"
-              : "Join PathPilot today and start building habits that lead to success"}
+            Join PathPilot today and start building habits that lead to success
           </p>
-          <Link href={mounted && isLoggedIn ? "/dashboard" : "/register"}>
+          <Link href="/register">
             <Button
               size="lg"
               className="h-14 px-10 text-lg bg-white text-purple-600 hover:bg-zinc-100 shadow-xl hover:shadow-2xl transition-all duration-300 group"
             >
-              {mounted && isLoggedIn ? "Go to Dashboard" : "Get Started Now"}
+              Get Started Now
               <FaArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
             </Button>
           </Link>

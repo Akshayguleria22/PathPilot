@@ -125,15 +125,6 @@ export default function Analytics() {
           target: 1,
         },
         {
-          key: "foodQuality",
-          label: "Food Quality",
-          value: summary.foodQuality,
-          icon: <FaUtensils />,
-          color: "from-yellow-500 to-amber-500",
-          target: 7,
-          max: 10,
-        },
-        {
           key: "mood",
           label: "Mood",
           value: summary.mood,
@@ -192,76 +183,6 @@ export default function Analytics() {
             </motion.div>
           ) : (
             <>
-              {/* Explanation Section */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3, duration: 0.7 }}
-              >
-                <Card className="bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
-                  <CardContent className="p-6">
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <div>
-                        <h3 className="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-3 flex items-center gap-2">
-                          📊 Understanding Your Metrics
-                        </h3>
-                        <div className="space-y-3 text-sm text-zinc-600 dark:text-zinc-400">
-                          <p>
-                            <strong className="text-zinc-800 dark:text-zinc-100">
-                              Sleep:
-                            </strong>{" "}
-                            Aim for 7-9 hours. Good sleep improves memory
-                            retention and focus.
-                          </p>
-                          <p>
-                            <strong className="text-zinc-800 dark:text-zinc-100">
-                              Study:
-                            </strong>{" "}
-                            Quality over quantity. Track focused study time, not
-                            just time spent.
-                          </p>
-                          <p>
-                            <strong className="text-zinc-800 dark:text-zinc-100">
-                              Mood:
-                            </strong>{" "}
-                            Higher mood scores often correlate with better
-                            learning outcomes.
-                          </p>
-                        </div>
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-3 flex items-center gap-2">
-                          🎯 How to Use Analytics
-                        </h3>
-                        <div className="space-y-3 text-sm text-zinc-600 dark:text-zinc-400">
-                          <div className="flex items-start gap-2">
-                            <span>•</span>
-                            <p>
-                              Compare weekly averages to identify improvement
-                              areas
-                            </p>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <span>•</span>
-                            <p>
-                              Look for correlations between sleep quality and
-                              study effectiveness
-                            </p>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <span>•</span>
-                            <p>
-                              Use AI recommendations to optimize your daily
-                              routine
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-
               {/* Summary Stats */}
               <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
                 <motion.div
@@ -392,12 +313,13 @@ export default function Analytics() {
                             />
                             <Tooltip
                               contentStyle={{
-                                backgroundColor: "rgba(24, 24, 27, 0.95)",
+                                backgroundColor: "#18181b",
                                 border: "1px solid #3f3f46",
                                 borderRadius: "12px",
                                 color: "#fafafa",
                                 padding: "12px",
                               }}
+                              cursor={{ fill: "rgba(255, 255, 255, 0.1)" }}
                             />
                             <Line
                               type="monotone"
@@ -501,8 +423,8 @@ export default function Analytics() {
                               <YAxis className="text-xs text-zinc-600 dark:text-zinc-400" />
                               <Tooltip
                                 contentStyle={{
-                                  backgroundColor: "rgba(255, 255, 255, 0.95)",
-                                  border: "1px solid #e4e4e7",
+                                  backgroundColor: "#18181b",
+                                  border: "1px solid #3f3f46",
                                   borderRadius: "8px",
                                 }}
                               />
@@ -558,8 +480,8 @@ export default function Analytics() {
                               <YAxis className="text-xs text-zinc-600 dark:text-zinc-400" />
                               <Tooltip
                                 contentStyle={{
-                                  backgroundColor: "rgba(255, 255, 255, 0.95)",
-                                  border: "1px solid #e4e4e7",
+                                  backgroundColor: "#18181b",
+                                  border: "1px solid #3f3f46",
                                   borderRadius: "8px",
                                 }}
                               />
@@ -614,8 +536,8 @@ export default function Analytics() {
                               />
                               <Tooltip
                                 contentStyle={{
-                                  backgroundColor: "rgba(255, 255, 255, 0.95)",
-                                  border: "1px solid #e4e4e7",
+                                  backgroundColor: "#18181b",
+                                  border: "1px solid #3f3f46",
                                   borderRadius: "8px",
                                 }}
                               />
@@ -664,8 +586,8 @@ export default function Analytics() {
                               />
                               <Tooltip
                                 contentStyle={{
-                                  backgroundColor: "rgba(255, 255, 255, 0.95)",
-                                  border: "1px solid #e4e4e7",
+                                  backgroundColor: "#18181b",
+                                  border: "1px solid #3f3f46",
                                   borderRadius: "8px",
                                 }}
                               />

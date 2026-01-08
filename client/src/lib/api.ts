@@ -18,6 +18,18 @@ export const loginUser = async (data: any) => {
     return res.json();
 };
 
+export const getDailyReminder = async () => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(
+        `${API_URL}/api/daily-log/reminder`,
+        {
+            headers: { Authorization: `Bearer ${token}` },
+        }
+    );
+    return res.json();
+};
+
+
 export const addCourse = async (data: any) => {
     const token = localStorage.getItem("token");
     const res = await fetch(`${API_URL}/api/courses/add`, {
