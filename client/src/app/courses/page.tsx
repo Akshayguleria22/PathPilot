@@ -350,62 +350,136 @@ export default function Courses() {
             </motion.div>
           )}
 
-          {/* Tips Section */}
-          {!loading && (
+          {/* AI-Powered Learning Insights */}
+          {!loading && courses.length > 0 && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5, duration: 0.7 }}
             >
-              <Card className="bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 shadow-md">
+              <Card className="bg-gradient-to-br from-purple-500/10 via-blue-500/10 to-cyan-500/10 dark:from-purple-500/20 dark:via-blue-500/20 dark:to-cyan-500/20 border-2 border-purple-500/30 dark:border-purple-400/30 shadow-xl">
                 <CardHeader>
-                  <CardTitle className="text-2xl text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
-                    💡 Course Management Tips
+                  <CardTitle className="text-2xl text-zinc-800 dark:text-zinc-100 flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg">
+                      <FaChartLine className="text-white text-xl" />
+                    </div>
+                    AI-Powered Learning Insights
                   </CardTitle>
+                  <p className="text-zinc-600 dark:text-zinc-400 mt-2">
+                    Personalized recommendations based on your learning patterns
+                  </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid md:grid-cols-2 gap-4 text-zinc-700 dark:text-zinc-300">
-                    <div className="flex items-start gap-3 p-4 bg-white dark:bg-zinc-900 rounded-lg">
-                      <span className="text-2xl">🎯</span>
-                      <div>
-                        <p className="font-semibold mb-1">
-                          Set Realistic Goals
-                        </p>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                          Start with achievable weekly hour targets and adjust
-                          based on your progress
-                        </p>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      className="p-5 bg-white/80 dark:bg-zinc-900/80 backdrop-blur rounded-xl border border-purple-200 dark:border-purple-800 shadow-md"
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center text-2xl">
+                          🚀
+                        </div>
+                        <div>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
+                            Next Focus
+                          </p>
+                          <p className="text-lg font-bold text-zinc-800 dark:text-zinc-100">
+                            {courses.find((c: any) => c.progress < 50)?.name ||
+                              courses[0]?.name ||
+                              "Keep learning!"}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3 p-4 bg-white dark:bg-zinc-900 rounded-lg">
-                      <span className="text-2xl">📅</span>
-                      <div>
-                        <p className="font-semibold mb-1">Categorize Wisely</p>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                          Use categories to prioritize - Academic for critical
-                          courses, Skills for development
-                        </p>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                        {courses.find((c: any) => c.progress < 50)
+                          ? "This course needs attention to maintain momentum"
+                          : "All courses progressing well!"}
+                      </p>
+                    </motion.div>
+
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      className="p-5 bg-white/80 dark:bg-zinc-900/80 backdrop-blur rounded-xl border border-blue-200 dark:border-blue-800 shadow-md"
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg flex items-center justify-center text-2xl">
+                          📊
+                        </div>
+                        <div>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
+                            Learning Velocity
+                          </p>
+                          <p className="text-lg font-bold text-zinc-800 dark:text-zinc-100">
+                            {courses.length > 0
+                              ? Math.round(
+                                  courses.reduce(
+                                    (acc: number, c: any) => acc + c.progress,
+                                    0
+                                  ) /
+                                    courses.length /
+                                    10
+                                )
+                              : 0}
+                            x
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3 p-4 bg-white dark:bg-zinc-900 rounded-lg">
-                      <span className="text-2xl">🔄</span>
-                      <div>
-                        <p className="font-semibold mb-1">Regular Updates</p>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                          Update your progress regularly to see meaningful
-                          trends in your analytics
-                        </p>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                        Your average progress rate across all courses
+                      </p>
+                    </motion.div>
+
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      className="p-5 bg-white/80 dark:bg-zinc-900/80 backdrop-blur rounded-xl border border-green-200 dark:border-green-800 shadow-md"
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center text-2xl">
+                          🎯
+                        </div>
+                        <div>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
+                            On Track
+                          </p>
+                          <p className="text-lg font-bold text-zinc-800 dark:text-zinc-100">
+                            {
+                              courses.filter((c: any) => c.progress >= 60)
+                                .length
+                            }
+                            /{courses.length}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3 p-4 bg-white dark:bg-zinc-900 rounded-lg">
-                      <span className="text-2xl">⚖️</span>
-                      <div>
-                        <p className="font-semibold mb-1">Balance Your Load</p>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                          Distribute study hours across courses to avoid burnout
-                          and maintain quality
-                        </p>
-                      </div>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                        Courses meeting your target progress goals
+                      </p>
+                    </motion.div>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="mt-6 pt-6 border-t border-zinc-200 dark:border-zinc-700">
+                    <div className="flex flex-wrap gap-3">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all"
+                      >
+                        ✨ Generate Study Plan
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all"
+                      >
+                        📈 View Analytics
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all"
+                      >
+                        🏆 Set Milestone
+                      </motion.button>
                     </div>
                   </div>
                 </CardContent>

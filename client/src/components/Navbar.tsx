@@ -17,19 +17,33 @@ import { MdDashboard } from "react-icons/md";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
+
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    // Only access localStorage on the client side
-    setToken(localStorage.getItem("token"));
-  }, []);
+    // Check token on mount and pathname change
+    const checkToken = () => {
+      setToken(localStorage.getItem("token"));
+    };
+
+    checkToken();
+
+    // Listen for storage changes (in case of login/logout in another tab)
+    window.addEventListener("storage", checkToken);
+
+    return () => {
+      window.removeEventListener("storage", checkToken);
+    };
+  }, [pathname]); // Re-check when pathname changes
 
   const logoutHandler = () => {
     localStorage.removeItem("token");
     setToken(null);
+    // Dispatch storage event manually for same-window updates
+    window.dispatchEvent(new Event("storage"));
     router.push("/login");
   };
 

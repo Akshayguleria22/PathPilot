@@ -1,4 +1,5 @@
-export const API_URL = "http://localhost:5000";
+export const API_URL =
+    process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:5000";
 
 export const registerUser = async (data: any) => {
     const res = await fetch(`${API_URL}/api/users/register`, {
@@ -28,6 +29,64 @@ export const getDailyReminder = async () => {
     );
     return res.json();
 };
+export const trackEvent = async (data: {
+    eventType: string;
+    courseId?: string;
+    resourceId?: string;
+    metadata?: any;
+}) => {
+    const token = localStorage.getItem("token");
+    try {
+        const res = await fetch(
+            `${API_URL}/api/events/track`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(data),
+            }
+        );
+        const result = await res.json();
+        console.log("Event tracked:", data.eventType, result);
+        return result;
+    } catch (error) {
+        console.error("Failed to track event:", error);
+    }
+};
+
+export const getUserEvents = async () => {
+    const token = localStorage.getItem("token");
+    try {
+        const res = await fetch(`${API_URL}/api/events`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        return res.json();
+    } catch (error) {
+        console.error("Failed to fetch events:", error);
+        return [];
+    }
+};
+export async function fetchResources(query: string, courseId: string) {
+    const res = await fetch(
+        `${API_URL}/api/resources/fetch?query=${encodeURIComponent(
+            query
+        )}&courseId=${courseId}`,
+        {
+            headers: {
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+        }
+    );
+
+    if (!res.ok) throw new Error("Failed to fetch resources");
+
+    return res.json();
+}
+
+
+
 
 
 export const addCourse = async (data: any) => {
@@ -203,7 +262,7 @@ export const autoAdaptRoadmap = async (courseId: string) => {
 export const submitTodayLog = async (data: any) => {
     const token = localStorage.getItem("token");
     const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/daily-log/today`,
+        `${API_URL}/api/daily-log/today`,
         {
             method: "POST",
             headers: {
@@ -219,11 +278,69 @@ export const submitTodayLog = async (data: any) => {
 export const getWeeklyLogs = async () => {
     const token = localStorage.getItem("token");
     const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/daily-log/week`,
+        `${API_URL}/api/daily-log/week`,
         {
             headers: {
                 Authorization: `Bearer ${token}`,
             },
+        }
+    );
+    return res.json();
+};
+
+export const getStreak = async () => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API_URL}/api/streak`, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+};
+
+export const getStreakAndBadges = async () => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API_URL}/api/streak/badges`, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+};
+
+export const getBurnoutRisk = async () => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API_URL}/api/streak/burnout`, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+};
+
+// Search API
+export const searchWeb = async (query: string, type = "organic", limit = 10) => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(
+        `${API_URL}/api/search/web?q=${encodeURIComponent(query)}&type=${type}&limit=${limit}`,
+        {
+            headers: { Authorization: `Bearer ${token}` },
+        }
+    );
+    return res.json();
+};
+
+export const searchLearningResources = async (topic: string) => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(
+        `${API_URL}/api/search/learning?topic=${encodeURIComponent(topic)}`,
+        {
+            headers: { Authorization: `Bearer ${token}` },
+        }
+    );
+    return res.json();
+};
+
+export const searchNews = async (topic: string, limit = 5) => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(
+        `${API_URL}/api/search/news?topic=${encodeURIComponent(topic)}&limit=${limit}`,
+        {
+            headers: { Authorization: `Bearer ${token}` },
         }
     );
     return res.json();

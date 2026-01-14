@@ -76,19 +76,41 @@ export default function Analytics() {
   }, []);
 
   // Prepare chart data from logs - automatically filtered to current week by backend
-  const chartData = logs.map((log: any) => {
-    const date = new Date(log.date);
-    const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
-    return {
-      day: dayName,
-      sleep: log.sleep || 0,
-      study: log.study || 0,
-      exercise: log.exercise || 0,
-      entertainment: log.entertainment || 0,
-      mood: log.mood || 0,
-      foodQuality: log.foodQuality || 0,
-    };
-  });
+  const chartData = (() => {
+    // Get current week (Monday to Sunday)
+    const now = new Date();
+    const currentDay = now.getDay();
+    const diff = currentDay === 0 ? -6 : 1 - currentDay; // Adjust when day is Sunday
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diff);
+
+    // Create array for all 7 days of the week
+    const weekDays = [];
+    const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+    for (let i = 0; i < 7; i++) {
+      const currentDate = new Date(monday);
+      currentDate.setDate(monday.getDate() + i);
+      const dateStr = currentDate.toISOString().split("T")[0];
+
+      // Find log for this date
+      const log = logs.find((l: any) => l.date === dateStr);
+
+      weekDays.push({
+        day: dayNames[i],
+        date: dateStr,
+        sleep: log?.sleep || 0,
+        study: log?.study || 0,
+        exercise: log?.exercise || 0,
+        entertainment: log?.entertainment || 0,
+        mood: log?.mood || 0,
+        foodQuality: log?.foodQuality || 0,
+        hasData: !!log, // Track if this day has data
+      });
+    }
+
+    return weekDays;
+  })();
 
   const metrics = summary
     ? [

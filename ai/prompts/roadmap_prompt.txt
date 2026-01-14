@@ -1,0 +1,22 @@
+You are an expert learning planner.
+
+Generate a structured learning roadmap for the course:
+"{course_name}"
+
+User level: {level}
+
+Return ONLY valid JSON in this format:
+
+{
+  "steps": [
+    {
+      "title": "",
+      "description": "",
+      "difficulty": "beginner | intermediate | advanced",
+      "estimatedHours": number,
+      "topics": []
+    }
+  ]
+}
+
+No explanations. No markdown.

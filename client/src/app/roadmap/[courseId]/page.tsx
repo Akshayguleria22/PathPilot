@@ -8,6 +8,8 @@ import {
   updateRoadmapStep,
   submitAssessment,
   autoAdaptRoadmap,
+  trackEvent,
+  fetchResources,
 } from "@/lib/api";
 import RoadmapFlow from "@/components/RoadmapFlow";
 import toast from "react-hot-toast";
@@ -25,6 +27,13 @@ export default function RoadmapPage() {
   const [submittingAssessment, setSubmittingAssessment] = useState(false);
   const [adaptingRoadmap, setAdaptingRoadmap] = useState(false);
   const [updatingStep, setUpdatingStep] = useState<number | null>(null);
+  const [fetchingResources, setFetchingResources] = useState<number | null>(
+    null
+  );
+  const [resources, setResources] = useState<any>(null);
+  const [resourcesForStepIndex, setResourcesForStepIndex] = useState<
+    number | null
+  >(null);
 
   /* ---------------- LOAD ROADMAP ---------------- */
   useEffect(() => {
@@ -52,7 +61,7 @@ export default function RoadmapPage() {
   ) => {
     setUpdatingStep(stepIndex);
     const toastId = toast.loading("Updating step status...");
-    
+
     try {
       const res = await updateRoadmapStep(courseId, stepIndex, status);
       setRoadmap(res.roadmap);
@@ -66,20 +75,26 @@ export default function RoadmapPage() {
 
   /* ---------------- ASSESSMENT ---------------- */
   const handleSubmitAssessment = async () => {
-    if (score < 0 || score > 100) {
-      toast.error("Please enter a score between 0 and 100");
-      return;
-    }
-    
-    setSubmittingAssessment(true);
     const toastId = toast.loading("Saving assessment...");
-    
+
     try {
       await submitAssessment(courseId, score, confidence);
-      toast.success("Assessment saved successfully! AI can now adapt your roadmap.", { id: toastId, duration: 4000 });
+
+      trackEvent({
+        eventType: "assessment_submitted",
+        courseId,
+        metadata: {
+          score,
+          confidence,
+        },
+      });
+
+      toast.success("Assessment saved! AI will now adapt recommendations.", {
+        id: toastId,
+      });
+      setSubmittingAssessment(false);
     } catch {
-      toast.error("Failed to save assessment", { id: toastId });
-    } finally {
+      toast.error("Failed to save assessment.", { id: toastId });
       setSubmittingAssessment(false);
     }
   };
@@ -88,7 +103,7 @@ export default function RoadmapPage() {
   const handleAutoAdaptRoadmap = async () => {
     setAdaptingRoadmap(true);
     const toastId = toast.loading("AI is analyzing your progress...");
-    
+
     try {
       const data = await autoAdaptRoadmap(courseId);
 
@@ -98,8 +113,13 @@ export default function RoadmapPage() {
       }
 
       setRoadmap(data.roadmap);
-      const actions = data.actionsApplied.map((a: string) => a.replace(/_/g, " ")).join(", ");
-      toast.success(`Roadmap adapted! Actions: ${actions}`, { id: toastId, duration: 5000 });
+      const actions = data.actionsApplied
+        .map((a: string) => a.replace(/_/g, " "))
+        .join(", ");
+      toast.success(`Roadmap adapted! Actions: ${actions}`, {
+        id: toastId,
+        duration: 5000,
+      });
     } catch (err: any) {
       if (err.message.includes("Insufficient data")) {
         toast.error("Please submit a self-assessment first", { id: toastId });
@@ -124,7 +144,7 @@ export default function RoadmapPage() {
     );
   }
 
-  if (!roadmap) {
+  if (!roadmap || !roadmap.steps || !Array.isArray(roadmap.steps)) {
     return (
       <Protected>
         <div className="min-h-screen flex items-center justify-center">
@@ -143,6 +163,38 @@ export default function RoadmapPage() {
   const progressPercent = Math.round(
     (completedCount / roadmap.steps.length) * 100
   );
+
+  const fetchResourcesForStep = async (
+    stepTitle: string,
+    stepIndex: number
+  ) => {
+    if (!stepTitle || stepTitle === "undefined") {
+      toast.error("Invalid step title");
+      return;
+    }
+    const toastId = toast.loading("Fetching resources...");
+    try {
+      const res = await fetchResources(stepTitle, courseId);
+      console.log("Fetched resources:", res);
+
+      if (res && res.resources && Array.isArray(res.resources)) {
+        setResources(res.resources);
+        setResourcesForStepIndex(stepIndex);
+        toast.success(`Found ${res.resources.length} resources!`, {
+          id: toastId,
+        });
+      } else {
+        setResources([]);
+        setResourcesForStepIndex(null);
+        toast.error("No resources found", { id: toastId });
+      }
+    } catch (error) {
+      console.error("Error fetching resources:", error);
+      toast.error("Failed to fetch resources", { id: toastId });
+      setResources([]);
+      setResourcesForStepIndex(null);
+    }
+  };
 
   /* ---------------- RENDER ---------------- */
   return (
@@ -255,9 +307,10 @@ export default function RoadmapPage() {
             >
               <h3 className="font-bold text-xl">AI-Powered Adaptation</h3>
               <p className="text-sm text-purple-100">
-                Let AI analyze your progress and optimize your learning path automatically
+                Let AI analyze your progress and optimize your learning path
+                automatically
               </p>
-              
+
               <button
                 onClick={handleAutoAdaptRoadmap}
                 disabled={adaptingRoadmap}
@@ -284,13 +337,15 @@ export default function RoadmapPage() {
                 <div className="flex items-start justify-between gap-4 mb-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                        step.status === "completed"
-                          ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
-                          : step.status === "in-progress"
-                          ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400"
-                          : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600"
-                      }`}>
+                      <div
+                        className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                          step.status === "completed"
+                            ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+                            : step.status === "in-progress"
+                            ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400"
+                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600"
+                        }`}
+                      >
                         {step.status === "completed" ? (
                           <FaCheckCircle />
                         ) : step.status === "in-progress" ? (
@@ -320,10 +375,20 @@ export default function RoadmapPage() {
                         <a
                           href={r.url}
                           target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 dark:text-blue-400 hover:underline"
+                          className="text-blue-600 underline"
+                          onClick={() => {
+                            trackEvent({
+                              eventType: "resource_clicked",
+                              courseId,
+                              resourceId: r.url, // or videoId later
+                              metadata: {
+                                type: r.type,
+                                title: r.title,
+                              },
+                            });
+                          }}
                         >
-                          {r.title}
+                          [{r.type}] {r.title}
                         </a>
                       </li>
                     ))}
@@ -333,19 +398,79 @@ export default function RoadmapPage() {
                 {/* STATUS BUTTONS */}
                 <div className="flex gap-2 mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-800">
                   <button
-                    onClick={() => changeStatus(index, "in-progress")}
-                    disabled={updatingStep === index}
-                    className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={() => {
+                      changeStatus(index, "in-progress");
+
+                      trackEvent({
+                        eventType: "step_started",
+                        courseId,
+                        metadata: {
+                          stepIndex: index,
+                          stepTitle: step.title,
+                        },
+                      });
+                    }}
+                    className="text-xs bg-yellow-500 text-white px-3 py-1 rounded"
                   >
                     In Progress
                   </button>
 
                   <button
-                    onClick={() => changeStatus(index, "completed")}
+                    onClick={() => {
+                      changeStatus(index, "completed");
+
+                      trackEvent({
+                        eventType: "step_completed",
+                        courseId,
+                        metadata: {
+                          stepIndex: index,
+                          stepTitle: step.title,
+                        },
+                      });
+                    }}
                     disabled={updatingStep === index}
                     className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Mark Complete
+                    Mark Completed
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setFetchingResources(index);
+                      const toastId = toast.loading("Fetching resources...");
+
+                      try {
+                        const query = step.title || "tutorial";
+                        const res = await fetchResources(query, courseId);
+
+                        if (res && (res.videos || res.articles || res.docs)) {
+                          setResources(res);
+                          setResourcesForStepIndex(index);
+                          const total =
+                            (res.videos?.length || 0) +
+                            (res.articles?.length || 0) +
+                            (res.docs?.length || 0);
+                          toast.success(`Found ${total} resources!`, {
+                            id: toastId,
+                          });
+                        } else {
+                          toast.error("No resources found", { id: toastId });
+                        }
+                      } catch (error: any) {
+                        console.error("Fetch resources error:", error);
+                        toast.error(
+                          error.message || "Failed to fetch resources",
+                          { id: toastId }
+                        );
+                      } finally {
+                        setFetchingResources(null);
+                      }
+                    }}
+                    disabled={fetchingResources === index}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium rounded-lg transition-all disabled:cursor-not-allowed"
+                  >
+                    {fetchingResources === index
+                      ? "Fetching..."
+                      : "Fetch Resources"}
                   </button>
 
                   <span className="ml-auto text-sm text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
@@ -355,6 +480,121 @@ export default function RoadmapPage() {
                     </span>
                   </span>
                 </div>
+                {/* FETCHED RESOURCES */}
+                {resourcesForStepIndex === index &&
+                  resources?.videos &&
+                  resources.videos.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-lg font-semibold text-zinc-800 dark:text-zinc-200 mb-3 flex items-center gap-2">
+                        🎥 Videos
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {resources.videos.map((v: any, i: number) => (
+                          <a
+                            key={i}
+                            href={v.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden hover:shadow-lg transition-shadow bg-white dark:bg-zinc-800"
+                          >
+                            <img
+                              src={v.thumbnail}
+                              alt={v.title}
+                              className="w-full h-40 object-cover"
+                            />
+                            <div className="p-3">
+                              <p className="text-sm font-semibold line-clamp-2 text-zinc-800 dark:text-zinc-200">
+                                {v.title}
+                              </p>
+                              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                                {v.views
+                                  ? `${Math.round(v.views / 1000)}K views`
+                                  : "YouTube"}
+                              </p>
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                {resourcesForStepIndex === index &&
+                  resources?.articles &&
+                  resources.articles.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-lg font-semibold text-zinc-800 dark:text-zinc-200 mb-3 flex items-center gap-2">
+                        📰 Articles
+                      </h4>
+                      <div className="space-y-3">
+                        {resources.articles.map((a: any, i: number) => (
+                          <a
+                            key={i}
+                            href={a.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors bg-white dark:bg-zinc-900"
+                          >
+                            <div className="flex gap-3">
+                              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center text-2xl flex-shrink-0">
+                                📄
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm text-zinc-800 dark:text-zinc-200 mb-1 line-clamp-2">
+                                  {a.title}
+                                </p>
+                                {a.snippet && (
+                                  <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-2">
+                                    {a.snippet}
+                                  </p>
+                                )}
+                                <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-1">
+                                  {a.source || "Web"}
+                                </p>
+                              </div>
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                {resourcesForStepIndex === index &&
+                  resources?.docs &&
+                  resources.docs.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-lg font-semibold text-zinc-800 dark:text-zinc-200 mb-3 flex items-center gap-2">
+                        📚 Documentation
+                      </h4>
+                      <div className="space-y-3">
+                        {resources.docs.map((d: any, i: number) => (
+                          <a
+                            key={i}
+                            href={d.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block p-4 border border-green-200 dark:border-green-800 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors bg-white dark:bg-zinc-900"
+                          >
+                            <div className="flex gap-3">
+                              <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center text-2xl flex-shrink-0">
+                                📖
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm text-zinc-800 dark:text-zinc-200 mb-1 line-clamp-2">
+                                  {d.title}
+                                </p>
+                                {d.snippet && (
+                                  <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-2">
+                                    {d.snippet}
+                                  </p>
+                                )}
+                                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                  Official Documentation
+                                </p>
+                              </div>
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
               </motion.div>
             ))}
           </div>

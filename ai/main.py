@@ -1,18 +1,34 @@
+import os
+import json
+import joblib
+import pandas as pd
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List
+from groq import Groq
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# ---------------- INIT ---------------- #
 
 app = FastAPI()
 
-# CORS: allow frontend -> backend connection
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # use ["http://localhost:3000"] in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ML model (resource ranking)
+ranker = joblib.load("models/resource_ranker.pkl")
+
+# Groq LLM client
+groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+# ---------------- SCHEMAS ---------------- #
 
 class WeeklyData(BaseModel):
     sleep: float
@@ -22,113 +38,11 @@ class WeeklyData(BaseModel):
     mood: float
     stress: float
 
-@app.post("/analyze")
-def analyze(data: WeeklyData):
-    insights = []
-
-    if data.sleep < 7:
-        insights.append("Increase sleep to at least 7 hours.")
-    else:
-        insights.append("Good sleep consistency detected.")
-
-    if data.study < 3:
-        insights.append("Increase structured learning time for better retention.")
-    else:
-        insights.append("Study rhythm is healthy. Keep consistency.")
-
-    if data.entertainment > 3:
-        insights.append("Screen time seems high. Try replacing 30 minutes with reading or walking.")
-
-    if data.exercise < 0.5:
-        insights.append("Add 20 minutes of physical activity to improve energy and focus.")
-
-    if data.stress > 6:
-        insights.append("High stress detected. Try journaling or deep breathing sessions.")
-
-    return {"advice": insights}
 
 class RoadmapRequest(BaseModel):
     course_name: str
-    user_level: str  # beginner | intermediate | advanced
+    user_level: str = "beginner"
 
-@app.post("/generate-roadmap")
-def generate_roadmap(req: RoadmapRequest):
-    """
-    AI Roadmap Generator (Concept-wise)
-    """
-
-    roadmap = [
-        {
-            "title": "Fundamental Concepts",
-            "description": f"Core foundations of {req.course_name}.",
-            "resources": [
-                {
-                    "type": "video",
-                    "title": "Introduction Video",
-                    "url": "https://www.youtube.com/"
-                },
-                {
-                    "type": "article",
-                    "title": "Fundamentals Article",
-                    "url": "https://medium.com/"
-                },
-                {
-                    "type": "book",
-                    "title": "Recommended Book Chapter",
-                    "url": "https://books.google.com/"
-                },
-                {
-                    "type": "practice",
-                    "title": "Practice Exercises",
-                    "url": "https://leetcode.com/"
-                }
-            ]
-        },
-        {
-            "title": "Intermediate Concepts",
-            "description": f"Build deeper understanding of {req.course_name}.",
-            "resources": [
-                {
-                    "type": "video",
-                    "title": "Intermediate Tutorial",
-                    "url": "https://www.youtube.com/"
-                },
-                {
-                    "type": "article",
-                    "title": "Intermediate Reading",
-                    "url": "https://medium.com/"
-                },
-                {
-                    "type": "practice",
-                    "title": "Hands-on Practice",
-                    "url": "https://leetcode.com/"
-                }
-            ]
-        },
-        {
-            "title": "Advanced & Application",
-            "description": f"Real-world application and mastery of {req.course_name}.",
-            "resources": [
-                {
-                    "type": "video",
-                    "title": "Advanced Concepts Video",
-                    "url": "https://www.youtube.com/"
-                },
-                {
-                    "type": "book",
-                    "title": "Advanced Book Reference",
-                    "url": "https://books.google.com/"
-                },
-                {
-                    "type": "practice",
-                    "title": "Advanced Projects / Problems",
-                    "url": "https://github.com/"
-                }
-            ]
-        }
-    ]
-
-    return {"steps": roadmap}
 
 class AdaptRequest(BaseModel):
     course_name: str
@@ -137,39 +51,6 @@ class AdaptRequest(BaseModel):
     score: int
     confidence: int
 
-@app.post("/adapt-roadmap")
-def adapt_roadmap(req: AdaptRequest):
-    """
-    AI Roadmap Adaptation Engine
-    Returns both recommendations (GET endpoint) and actionable changes (POST endpoint)
-    """
-    actions = []
-    recommendations = []
-
-    progress_ratio = req.completed_steps / req.total_steps if req.total_steps > 0 else 0
-
-    # High performers
-    if req.score > 80 and req.confidence >= 4:
-        actions.append({"type": "skip_intro"})
-        recommendations.append("Skip introductory content and move to advanced topics.")
-    # Struggling learners
-    elif req.score < 50:
-        actions.append({"type": "add_practice"})
-        recommendations.append("Add more practice problems and revise fundamentals.")
-
-    # High progress
-    if progress_ratio > 0.7:
-        actions.append({"type": "increase_challenge"})
-        recommendations.append("Increase challenge with real-world projects.")
-    # Low progress
-    elif progress_ratio < 0.3:
-        actions.append({"type": "reduce_load"})
-        recommendations.append("Reduce daily load to avoid burnout.")
-
-    return {
-        "actions": actions,
-        "recommendations": recommendations
-    }
 
 class WeeklySummaryRequest(BaseModel):
     course_name: str
@@ -181,32 +62,174 @@ class WeeklySummaryRequest(BaseModel):
     score: int
     confidence: int
 
-@app.post("/weekly-summary")
-def weekly_summary(req: WeeklySummaryRequest):
-    summary = []
 
-    summary.append(
-        f"You completed {req.completed_steps} out of {req.total_steps} roadmap steps "
-        f"and reached {req.progress}% progress in {req.course_name}."
+class RankRequest(BaseModel):
+    clicks: int
+    completions: int
+    score: int
+    confidence: int
+
+
+# ---------------- ANALYTICS ---------------- #
+
+@app.post("/analyze")
+def analyze(data: WeeklyData):
+    insights = []
+
+    if data.sleep < 7:
+        insights.append("Increase sleep to at least 7 hours.")
+    else:
+        insights.append("Good sleep consistency detected.")
+
+    if data.study < 3:
+        insights.append("Increase structured learning time.")
+    else:
+        insights.append("Study rhythm is healthy.")
+
+    if data.entertainment > 3:
+        insights.append("Reduce screen time for better focus.")
+
+    if data.exercise < 0.5:
+        insights.append("Add light daily physical activity.")
+
+    if data.stress > 6:
+        insights.append("High stress detected. Try mindfulness.")
+
+    return {"advice": insights}
+
+
+# ---------------- AI ROADMAP (GROQ) ---------------- #
+
+@app.post("/generate-roadmap")
+def generate_roadmap(req: RoadmapRequest):
+    prompt = f"""
+You are an expert learning architect.
+
+Create a structured learning roadmap for:
+Course: {req.course_name}
+Level: {req.user_level}
+
+Return ONLY valid JSON:
+{{
+  "steps": [
+    {{
+      "title": "",
+      "description": "",
+      "difficulty": "beginner|intermediate|advanced",
+      "estimatedHours": number,
+      "topics": []
+    }}
+  ]
+}}
+No explanations. No markdown.
+"""
+
+    completion = groq_client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3,
     )
 
-    if req.avg_study_hours < 2:
-        summary.append("Your study time is low. Try blocking at least 2 focused hours daily.")
-    else:
-        summary.append("Your study consistency is good. Keep the momentum.")
+    return json.loads(completion.choices[0].message.content)
 
-    if req.avg_sleep_hours < 6:
-        summary.append("Sleep is insufficient. Better rest will improve focus and retention.")
-    else:
-        summary.append("Your sleep schedule supports productive learning.")
+
+# ---------------- ROADMAP ADAPTATION ---------------- #
+
+@app.post("/adapt-roadmap")
+def adapt_roadmap(req: AdaptRequest):
+    actions = []
+    recommendations = []
+
+    progress_ratio = (
+        req.completed_steps / req.total_steps if req.total_steps else 0
+    )
+
+    if req.score > 80 and req.confidence >= 4:
+        actions.append("skip_intro")
+        recommendations.append("Move to advanced topics.")
 
     if req.score < 50:
-        summary.append("Assessment scores indicate weak fundamentals. Focus on revision.")
-    elif req.score > 80:
-        summary.append("Strong performance detected. Consider tackling advanced challenges.")
+        actions.append("add_practice")
+        recommendations.append("Revise fundamentals with practice.")
 
-    summary.append("Next week focus: consistency, deep work, and one measurable improvement.")
+    if progress_ratio > 0.7:
+        actions.append("increase_challenge")
+
+    if progress_ratio < 0.3:
+        actions.append("reduce_load")
 
     return {
-        "summary": summary
+        "actions": actions,
+        "recommendations": recommendations,
     }
+
+
+# ---------------- WEEKLY SUMMARY ---------------- #
+
+@app.post("/weekly-summary")
+def weekly_summary(req: WeeklySummaryRequest):
+    summary = [
+        f"You completed {req.completed_steps}/{req.total_steps} steps "
+        f"({req.progress}% progress) in {req.course_name}."
+    ]
+
+    if req.avg_study_hours < 2:
+        summary.append("Increase daily study time.")
+    if req.avg_sleep_hours < 6:
+        summary.append("Improve sleep for better learning.")
+
+    if req.score < 50:
+        summary.append("Focus on fundamentals.")
+    elif req.score > 80:
+        summary.append("Try advanced challenges.")
+
+    return {"summary": summary}
+
+
+# ---------------- ML RANKING ---------------- #
+
+@app.post("/rank")
+def rank(req: RankRequest):
+    df = pd.DataFrame([{
+        "clicks": req.clicks,
+        "completions": req.completions,
+        "score": req.score,
+        "confidence": req.confidence,
+    }])
+
+    rank_score = ranker.predict(df)[0]
+    return {"rankScore": float(rank_score)}
+
+class ResourceQueryReq(BaseModel):
+    topic: str
+
+
+@app.post("/generate-resource-queries")
+def generate_resource_queries(req: ResourceQueryReq):
+    prompt = f"""
+Generate 5 high-quality YouTube search queries
+for the topic: {req.topic}
+
+Focus on:
+- tutorials
+- explanations
+- practice
+
+Return ONLY a JSON array of strings.
+"""
+
+    completion = groq_client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.2,
+    )
+
+    text = completion.choices[0].message.content
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return {
+            "error": "Invalid AI response",
+            "raw": text
+        }

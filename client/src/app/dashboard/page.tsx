@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Protected from "@/components/Protected";
+import SearchPanel from "@/components/SearchPanel";
 import {
   getTodayHabit,
   fetchWeeklySummary,
   getCoursesList,
   getRecentHabits,
   getDailyReminder,
+  getStreak,
+  getBurnoutRisk,
 } from "@/lib/api";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,11 +44,18 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [weekData, setWeekData] = useState<any[]>([]);
   const [reminderMessage, setReminderMessage] = useState<string>("");
+  const [streak, setStreak] = useState<number>(0);
+  const [burnout, setBurnout] = useState<any>(null);
 
   const load = async () => {
     try {
       const habits = await getTodayHabit();
-      setToday(habits[0] ?? null);
+
+      const todayDate = new Date().toISOString().split("T")[0];
+      const todayHabit = habits.find((h: any) => h.date === todayDate);
+
+      setToday(todayHabit || null);
+
       const weekly = await fetchWeeklySummary();
       setSummary(weekly);
       const courses = await getCoursesList();
@@ -56,6 +66,14 @@ export default function Dashboard() {
       // Fetch reminder message
       const reminder = await getDailyReminder();
       setReminderMessage(reminder.message || "");
+
+      // Fetch streak from server
+      const streakData = await getStreak();
+      setStreak(streakData.streak || 0);
+
+      // Fetch burnout risk
+      const burnoutData = await getBurnoutRisk();
+      setBurnout(burnoutData);
     } catch (error) {
       console.error("Error loading dashboard:", error);
     } finally {
@@ -80,11 +98,9 @@ export default function Dashboard() {
     visible: {
       y: 0,
       opacity: 1,
-      transition: { duration: 0.6, ease: "easeOut" },
+      transition: { duration: 0.6, ease: [0.4, 0, 0.2, 1] },
     },
   };
-
-  const streak = weekData.length;
 
   return (
     <Protected>
@@ -132,6 +148,56 @@ export default function Dashboard() {
               </Card>
             </motion.div>
           )}
+
+          {/* Burnout Alert */}
+          {burnout && burnout.level !== "low" && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              <Card
+                className={`border-2 shadow-lg ${
+                  burnout.level === "high"
+                    ? "bg-gradient-to-r from-red-500/10 via-orange-500/10 to-yellow-500/10 dark:from-red-500/20 dark:via-orange-500/20 dark:to-yellow-500/20 border-red-500/30 dark:border-red-400/30"
+                    : "bg-gradient-to-r from-yellow-500/10 via-orange-500/10 to-amber-500/10 dark:from-yellow-500/20 dark:via-orange-500/20 dark:to-amber-500/20 border-yellow-500/30 dark:border-yellow-400/30"
+                }`}
+              >
+                <CardContent className="p-5">
+                  <div className="flex items-start gap-4">
+                    <div
+                      className={`p-3 rounded-xl shadow-md ${
+                        burnout.level === "high"
+                          ? "bg-gradient-to-br from-red-500 to-orange-600"
+                          : "bg-gradient-to-br from-yellow-500 to-orange-600"
+                      }`}
+                    >
+                      <FaBell className="text-white text-xl" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-zinc-800 dark:text-zinc-100 mb-1">
+                        {burnout.level === "high"
+                          ? "⚠️ High Burnout Risk"
+                          : "⚡ Burnout Warning"}
+                      </h3>
+                      <p className="text-zinc-700 dark:text-zinc-300">
+                        {burnout.message}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* Search Panel */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
+            <SearchPanel />
+          </motion.div>
 
           {/* Quick Stats */}
           {loading ? (

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Protected from "@/components/Protected";
-import { getRecentHabits } from "@/lib/api";
+import { getRecentHabits, getStreakAndBadges } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import {
@@ -16,6 +16,15 @@ import {
   FaGem,
   FaRocket,
   FaHeart,
+  FaBolt,
+  FaShieldAlt,
+  FaDragon,
+  FaMountain,
+  FaBook,
+  FaGraduationCap,
+  FaCertificate,
+  FaAward,
+  FaDumbbell,
 } from "react-icons/fa";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -23,12 +32,23 @@ import { Badge } from "@/components/ui/badge";
 export default function BadgesPage() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [streak, setStreak] = useState(0);
+  const [serverBadges, setServerBadges] = useState<string[]>([]);
+  const [totalDays, setTotalDays] = useState(logs.length);
+  const [totalStudyHours, setTotalStudyHours] = useState(0);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await getRecentHabits();
-        setLogs(Array.isArray(data) ? data : []);
+        const [habitsData, streakData] = await Promise.all([
+          getRecentHabits(),
+          getStreakAndBadges(),
+        ]);
+        setLogs(Array.isArray(habitsData) ? habitsData : []);
+        setStreak(streakData.streak || 0);
+        setServerBadges(streakData.badges || []);
+        setTotalDays(streakData.totalDays || 0);
+        setTotalStudyHours(streakData.totalStudyHours || 0);
       } catch (error) {
         console.error("Error fetching logs:", error);
         setLogs([]);
@@ -39,84 +59,229 @@ export default function BadgesPage() {
     load();
   }, []);
 
-  const totalDays = logs.length;
   const totalStudy = logs.reduce((a, d) => a + (d.study || 0), 0);
   const avgStudy = totalDays ? totalStudy / totalDays : 0;
-  const avgSleep = totalDays > 0 ? logs.reduce((a, d) => a + (d.sleep || 0), 0) / totalDays : 0;
-  const avgMood = totalDays > 0 ? logs.reduce((a, d) => a + (d.mood || 0), 0) / totalDays : 0;
+  const avgSleep =
+    totalDays > 0
+      ? logs.reduce((a, d) => a + (d.sleep || 0), 0) / totalDays
+      : 0;
+  const avgMood =
+    totalDays > 0 ? logs.reduce((a, d) => a + (d.mood || 0), 0) / totalDays : 0;
 
   const baseBadges = [
-    {
-      name: "3-Day Streak",
-      description: "Log habits for 3 consecutive days",
-      icon: <FaFire />,
-      unlocked: totalDays >= 3,
-      progress: (totalDays / 3) * 100,
-      gradient: "from-orange-500 to-red-500",
-      category: "Consistency",
-    },
+    // STREAK ACHIEVEMENTS
     {
       name: "Week Warrior",
-      description: "Complete 7 consecutive days",
-      icon: <FaTrophy />,
-      unlocked: totalDays >= 7,
-      progress: (totalDays / 7) * 100,
-      gradient: "from-yellow-500 to-amber-500",
-      category: "Consistency",
+      description: "Maintain a 7-day streak",
+      icon: <FaFire />,
+      unlocked: serverBadges.includes("Week Warrior"),
+      progress: Math.min((streak / 7) * 100, 100),
+      gradient: "from-orange-500 to-red-500",
+      category: "Streak Master",
     },
     {
-      name: "Dedicated Learner",
-      description: "Log 14 days of activities",
+      name: "Fortnight Fighter",
+      description: "Achieve a 14-day streak",
+      icon: <FaBolt />,
+      unlocked: serverBadges.includes("Fortnight Fighter"),
+      progress: Math.min((streak / 14) * 100, 100),
+      gradient: "from-yellow-500 to-orange-500",
+      category: "Streak Master",
+    },
+    {
+      name: "Monthly Master",
+      description: "Complete a 30-day streak",
       icon: <FaCrown />,
-      unlocked: totalDays >= 14,
-      progress: (totalDays / 14) * 100,
+      unlocked: serverBadges.includes("Monthly Master"),
+      progress: Math.min((streak / 30) * 100, 100),
       gradient: "from-purple-500 to-pink-500",
-      category: "Consistency",
+      category: "Streak Master",
+    },
+    {
+      name: "Consistency Champion",
+      description: "Reach a 60-day streak",
+      icon: <FaTrophy />,
+      unlocked: serverBadges.includes("Consistency Champion"),
+      progress: Math.min((streak / 60) * 100, 100),
+      gradient: "from-cyan-500 to-blue-500",
+      category: "Streak Master",
+    },
+    {
+      name: "Quarter Legend",
+      description: "Achieve a 90-day streak",
+      icon: <FaGem />,
+      unlocked: serverBadges.includes("Quarter Legend"),
+      progress: Math.min((streak / 90) * 100, 100),
+      gradient: "from-emerald-500 to-teal-500",
+      category: "Streak Master",
+    },
+    {
+      name: "Century Achiever",
+      description: "Reach 100-day streak milestone",
+      icon: <FaMedal />,
+      unlocked: serverBadges.includes("Century Achiever"),
+      progress: Math.min((streak / 100) * 100, 100),
+      gradient: "from-amber-500 to-yellow-500",
+      category: "Streak Master",
+    },
+    {
+      name: "Half Year Hero",
+      description: "Maintain 180-day streak",
+      icon: <FaShieldAlt />,
+      unlocked: serverBadges.includes("Half Year Hero"),
+      progress: Math.min((streak / 180) * 100, 100),
+      gradient: "from-indigo-500 to-purple-500",
+      category: "Elite Streaks",
+    },
+    {
+      name: "Year Long Warrior",
+      description: "Complete a full year streak (365 days)",
+      icon: <FaDragon />,
+      unlocked: serverBadges.includes("Year Long Warrior"),
+      progress: Math.min((streak / 365) * 100, 100),
+      gradient: "from-rose-500 to-pink-500",
+      category: "Elite Streaks",
+    },
+    {
+      name: "Unstoppable Force",
+      description: "Achieve a legendary 500-day streak",
+      icon: <FaMountain />,
+      unlocked: serverBadges.includes("Unstoppable Force"),
+      progress: Math.min((streak / 500) * 100, 100),
+      gradient: "from-violet-500 to-fuchsia-500",
+      category: "Elite Streaks",
+    },
+    {
+      name: "Two Year Titan",
+      description: "Master a 730-day streak",
+      icon: <FaAward />,
+      unlocked: serverBadges.includes("Two Year Titan"),
+      progress: Math.min((streak / 730) * 100, 100),
+      gradient: "from-red-500 to-orange-500",
+      category: "Elite Streaks",
+    },
+
+    // TOTAL DAYS LOGGED
+    {
+      name: "30 Days Strong",
+      description: "Log habits for 30 total days",
+      icon: <FaFire />,
+      unlocked: serverBadges.includes("30 Days Strong"),
+      progress: Math.min((totalDays / 30) * 100, 100),
+      gradient: "from-orange-400 to-red-400",
+      category: "Milestone",
+    },
+    {
+      name: "50 Days Dedicated",
+      description: "Reach 50 days tracked",
+      icon: <FaStar />,
+      unlocked: serverBadges.includes("50 Days Dedicated"),
+      progress: Math.min((totalDays / 50) * 100, 100),
+      gradient: "from-yellow-400 to-amber-400",
+      category: "Milestone",
+    },
+    {
+      name: "100 Days Milestone",
+      description: "Track 100 days of habits",
+      icon: <FaMedal />,
+      unlocked: serverBadges.includes("100 Days Milestone"),
+      progress: Math.min((totalDays / 100) * 100, 100),
+      gradient: "from-blue-400 to-cyan-400",
+      category: "Milestone",
+    },
+    {
+      name: "200 Days Legend",
+      description: "Log 200 days of progress",
+      icon: <FaCrown />,
+      unlocked: serverBadges.includes("200 Days Legend"),
+      progress: Math.min((totalDays / 200) * 100, 100),
+      gradient: "from-purple-400 to-pink-400",
+      category: "Milestone",
+    },
+    {
+      name: "Year Tracker",
+      description: "Track habits for 365 days",
+      icon: <FaTrophy />,
+      unlocked: serverBadges.includes("Year Tracker"),
+      progress: Math.min((totalDays / 365) * 100, 100),
+      gradient: "from-emerald-400 to-teal-400",
+      category: "Milestone",
+    },
+
+    // STUDY HOURS ACHIEVEMENTS
+    {
+      name: "Study Starter",
+      description: "Complete 50 hours of study",
+      icon: <FaBook />,
+      unlocked: serverBadges.includes("Study Starter"),
+      progress: Math.min((totalStudyHours / 50) * 100, 100),
+      gradient: "from-blue-500 to-indigo-500",
+      category: "Study Progress",
+    },
+    {
+      name: "Study Enthusiast",
+      description: "Reach 100 hours of study",
+      icon: <FaBrain />,
+      unlocked: serverBadges.includes("Study Enthusiast"),
+      progress: Math.min((totalStudyHours / 100) * 100, 100),
+      gradient: "from-purple-500 to-violet-500",
+      category: "Study Progress",
     },
     {
       name: "Study Master",
-      description: "Maintain 3+ hours average study",
-      icon: <FaBrain />,
-      unlocked: avgStudy >= 3,
-      progress: (avgStudy / 3) * 100,
-      gradient: "from-blue-500 to-cyan-500",
-      category: "Performance",
+      description: "Achieve 250 hours of study",
+      icon: <FaGraduationCap />,
+      unlocked: serverBadges.includes("Study Master"),
+      progress: Math.min((totalStudyHours / 250) * 100, 100),
+      gradient: "from-cyan-500 to-blue-500",
+      category: "Study Progress",
     },
+    {
+      name: "Study Legend",
+      description: "Complete 500 hours of study",
+      icon: <FaCertificate />,
+      unlocked: serverBadges.includes("Study Legend"),
+      progress: Math.min((totalStudyHours / 500) * 100, 100),
+      gradient: "from-green-500 to-emerald-500",
+      category: "Study Progress",
+    },
+    {
+      name: "Study Titan",
+      description: "Master 1000 hours of study",
+      icon: <FaMountain />,
+      unlocked: serverBadges.includes("Study Titan"),
+      progress: Math.min((totalStudyHours / 1000) * 100, 100),
+      gradient: "from-amber-500 to-orange-500",
+      category: "Study Progress",
+    },
+
+    // WELLNESS ACHIEVEMENTS
     {
       name: "Sleep Champion",
       description: "Maintain 7+ hours average sleep",
       icon: <FaBed />,
       unlocked: avgSleep >= 7,
-      progress: (avgSleep / 7) * 100,
+      progress: Math.min((avgSleep / 7) * 100, 100),
       gradient: "from-indigo-500 to-blue-500",
       category: "Wellness",
     },
     {
-      name: "Positive Vibes",
-      description: "Maintain 7+ average mood rating",
+      name: "Positive Mindset",
+      description: "Keep 7+ average mood rating",
       icon: <FaHeart />,
       unlocked: avgMood >= 7,
-      progress: (avgMood / 7) * 100,
+      progress: Math.min((avgMood / 7) * 100, 100),
       gradient: "from-pink-500 to-rose-500",
       category: "Wellness",
     },
     {
-      name: "Consistency King",
-      description: "Log habits for 30 days",
-      icon: <FaGem />,
-      unlocked: totalDays >= 30,
-      progress: (totalDays / 30) * 100,
-      gradient: "from-cyan-500 to-teal-500",
-      category: "Milestone",
-    },
-    {
-      name: "High Achiever",
-      description: "Study 5+ hours daily average",
-      icon: <FaStar />,
-      unlocked: avgStudy >= 5,
-      progress: (avgStudy / 5) * 100,
-      gradient: "from-green-500 to-emerald-500",
-      category: "Performance",
+      name: "Balanced Life",
+      description: "Achieve 8+ hours sleep & 7+ mood",
+      icon: <FaDumbbell />,
+      unlocked: avgSleep >= 8 && avgMood >= 7,
+      progress: Math.min(((avgSleep / 8 + avgMood / 7) / 2) * 100, 100),
+      gradient: "from-teal-500 to-cyan-500",
+      category: "Wellness",
     },
   ];
 
@@ -125,18 +290,25 @@ export default function BadgesPage() {
   const badges = [
     ...baseBadges,
     {
-      name: "Rockstar",
-      description: "Unlock all other badges",
+      name: "Ultimate Champion",
+      description: "Unlock all achievements",
       icon: <FaRocket />,
-      unlocked: baseUnlockedCount === 8,
-      progress: (baseUnlockedCount / 8) * 100,
+      unlocked: baseUnlockedCount === baseBadges.length,
+      progress: (baseUnlockedCount / baseBadges.length) * 100,
       gradient: "from-violet-500 to-purple-500",
-      category: "Milestone",
+      category: "Ultimate",
     },
   ];
 
   const unlockedCount = badges.filter((b) => b.unlocked).length;
-  const categories = ["Consistency", "Performance", "Wellness", "Milestone"];
+  const categories = [
+    "Streak Master",
+    "Elite Streaks",
+    "Milestone",
+    "Study Progress",
+    "Wellness",
+    "Ultimate",
+  ];
 
   return (
     <Protected>
@@ -183,7 +355,8 @@ export default function BadgesPage() {
                       />
                     </div>
                     <p className="text-sm opacity-90">
-                      {Math.round((unlockedCount / badges.length) * 100)}% Complete
+                      {Math.round((unlockedCount / badges.length) * 100)}%
+                      Complete
                     </p>
                   </div>
                 </div>
@@ -228,7 +401,9 @@ export default function BadgesPage() {
                       >
                         {/* Gradient Background */}
                         <div
-                          className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${badge.gradient} ${
+                          className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${
+                            badge.gradient
+                          } ${
                             badge.unlocked ? "opacity-20" : "opacity-10"
                           } rounded-full blur-3xl`}
                         ></div>

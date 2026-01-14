@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Protected from "@/components/Protected";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
-import { getRecentHabits } from "@/lib/api";
+import { getRecentHabits, getStreak } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import {
@@ -29,12 +29,17 @@ export default function CalendarPage() {
   const [logs, setLogs] = useState<Log[]>([]);
   const [selectedLog, setSelectedLog] = useState<Log | null>(null);
   const [loading, setLoading] = useState(true);
+  const [streak, setStreak] = useState(0);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await getRecentHabits();
+        const [data, streakData] = await Promise.all([
+          getRecentHabits(),
+          getStreak(),
+        ]);
         setLogs(Array.isArray(data) ? data : []);
+        setStreak(streakData.streak || 0);
       } catch (error) {
         console.error("Error fetching logs:", error);
         setLogs([]);
@@ -47,27 +52,6 @@ export default function CalendarPage() {
 
   const loggedDates = logs.map((l) => l.date);
 
-  const calculateStreak = () => {
-    let streak = 0;
-    let current = new Date();
-    current.setHours(0, 0, 0, 0);
-
-    while (true) {
-      const year = current.getFullYear();
-      const month = String(current.getMonth() + 1).padStart(2, '0');
-      const day = String(current.getDate()).padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
-      if (loggedDates.includes(dateStr)) {
-        streak++;
-        current.setDate(current.getDate() - 1);
-      } else {
-        break;
-      }
-    }
-    return streak;
-  };
-
-  const streak = calculateStreak();
   const totalDays = logs.length;
 
   return (
@@ -141,7 +125,10 @@ export default function CalendarPage() {
                     <div>
                       <p className="text-sm opacity-90">Consistency</p>
                       <p className="text-4xl font-bold">
-                        {totalDays > 0 ? Math.round((streak / totalDays) * 100) : 0}%
+                        {totalDays > 0
+                          ? Math.round((streak / totalDays) * 100)
+                          : 0}
+                        %
                       </p>
                       <p className="text-sm opacity-90">streak rate</p>
                     </div>
@@ -171,10 +158,14 @@ export default function CalendarPage() {
                 <CardContent>
                   <div className="calendar-container">
                     <Calendar
+                      locale="en-US"
                       tileContent={({ date }) => {
                         const year = date.getFullYear();
-                        const month = String(date.getMonth() + 1).padStart(2, '0');
-                        const day = String(date.getDate()).padStart(2, '0');
+                        const month = String(date.getMonth() + 1).padStart(
+                          2,
+                          "0"
+                        );
+                        const day = String(date.getDate()).padStart(2, "0");
                         const dateStr = `${year}-${month}-${day}`;
                         const hasLog = loggedDates.includes(dateStr);
                         return hasLog ? (
@@ -183,8 +174,11 @@ export default function CalendarPage() {
                       }}
                       tileClassName={({ date }) => {
                         const year = date.getFullYear();
-                        const month = String(date.getMonth() + 1).padStart(2, '0');
-                        const day = String(date.getDate()).padStart(2, '0');
+                        const month = String(date.getMonth() + 1).padStart(
+                          2,
+                          "0"
+                        );
+                        const day = String(date.getDate()).padStart(2, "0");
                         const dateStr = `${year}-${month}-${day}`;
                         const hasLog = loggedDates.includes(dateStr);
                         return hasLog
@@ -193,8 +187,11 @@ export default function CalendarPage() {
                       }}
                       onClickDay={(date) => {
                         const year = date.getFullYear();
-                        const month = String(date.getMonth() + 1).padStart(2, '0');
-                        const day = String(date.getDate()).padStart(2, '0');
+                        const month = String(date.getMonth() + 1).padStart(
+                          2,
+                          "0"
+                        );
+                        const day = String(date.getDate()).padStart(2, "0");
                         const dateStr = `${year}-${month}-${day}`;
                         const log = logs.find((l) => l.date === dateStr);
                         setSelectedLog(log || null);
@@ -223,12 +220,15 @@ export default function CalendarPage() {
                     <div className="space-y-4">
                       <div className="text-center pb-4 border-b border-zinc-200 dark:border-zinc-700">
                         <Badge className="bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 px-4 py-2 text-base">
-                          {new Date(selectedLog.date).toLocaleDateString("en-US", {
-                            weekday: "long",
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })}
+                          {new Date(selectedLog.date).toLocaleDateString(
+                            "en-US",
+                            {
+                              weekday: "long",
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            }
+                          )}
                         </Badge>
                       </div>
 
@@ -259,7 +259,8 @@ export default function CalendarPage() {
                     <div className="text-center py-12">
                       <FaCalendar className="text-6xl text-zinc-300 dark:text-zinc-700 mx-auto mb-4" />
                       <p className="text-zinc-600 dark:text-zinc-400">
-                        Click on a highlighted date to view your activity for that day
+                        Click on a highlighted date to view your activity for
+                        that day
                       </p>
                     </div>
                   )}

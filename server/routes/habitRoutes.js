@@ -22,7 +22,13 @@ router.post("/log", protect, async (req, res) => {
 
 // Get recent logs (last 7 days)
 router.get("/recent", protect, async (req, res) => {
-    const habits = await Habit.find({ userId: req.user._id }).sort({ date: -1 }).limit(7);
+    const today = new Date().toISOString().split('T')[0];
+    const sevenDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const habits = await Habit.find({
+        userId: req.user._id,
+        date: { $gte: sevenDaysAgo, $lte: today }
+    }).sort({ date: -1 });
     res.json(habits);
 });
 

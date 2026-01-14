@@ -4,39 +4,41 @@ import Roadmap from "../models/Roadmap.js";
 import Course from "../models/Course.js";
 import { protect } from "../middleware/auth.js";
 import Assessment from "../models/Assessment.js";
+import { generateRoadmap } from "../services/aiRoadmapService.js";
 
 const router = express.Router();
 
 // Generate roadmap for a course
 router.post("/adapt/:courseId", protect, async (req, res) => {
-    const roadmap = await Roadmap.findOne({
-        userId: req.user._id,
-        courseId: req.params.courseId,
-    });
-
-    const assessment = await Assessment.findOne({
-        userId: req.user._id,
-        courseId: req.params.courseId,
-    }).sort({ createdAt: -1 });
-
-    if (!roadmap || !assessment) {
-        return res.status(400).json({
-            message: "Insufficient data to adapt roadmap",
+    try {
+        const roadmap = await Roadmap.findOne({
+            userId: req.user._id,
+            courseId: req.params.courseId,
         });
-    }
 
-    const completed = roadmap.steps.filter(s => s.status === "completed").length;
+        const assessment = await Assessment.findOne({
+            userId: req.user._id,
+            courseId: req.params.courseId,
+        }).sort({ createdAt: -1 });
 
-    const aiRes = await axios.post(
-        `${process.env.AI_SERVICE_URL}/adapt-roadmap`,
-        {
-            course_name: "Course",
-            completed_steps: completed,
-            total_steps: roadmap.steps.length,
-            score: assessment.score,
-            confidence: assessment.confidence,
+        if (!roadmap || !assessment) {
+            return res.status(400).json({
+                message: "Insufficient data to adapt roadmap",
+            });
         }
-    );
+
+        const completed = roadmap.steps.filter(s => s.status === "completed").length;
+
+        const aiRes = await axios.post(
+            `${process.env.AI_SERVICE_URL}/adapt-roadmap`,
+            {
+                course_name: "Course",
+                completed_steps: completed,
+                total_steps: roadmap.steps.length,
+                score: assessment.score,
+                confidence: assessment.confidence,
+            }
+        );
 
     const actions = aiRes.data.actions || [];
 
@@ -98,13 +100,20 @@ router.post("/adapt/:courseId", protect, async (req, res) => {
         }
     });
 
-    await roadmap.save();
+        await roadmap.save();
 
-    res.json({
-        message: "Roadmap adapted automatically",
-        actionsApplied: actions.map(a => a.type),
-        roadmap,
-    });
+        res.json({
+            message: "Roadmap adapted automatically",
+            actionsApplied: actions.map(a => a.type),
+            roadmap,
+        });
+    } catch (error) {
+        console.error("Error adapting roadmap:", error);
+        res.status(500).json({ 
+            message: "Failed to adapt roadmap",
+            error: error.message 
+        });
+    }
 });
 
 // Get roadmap for a course
@@ -158,73 +167,123 @@ router.patch(
 
 
 router.get("/adapt/:courseId", protect, async (req, res) => {
-    const roadmap = await Roadmap.findOne({
-        userId: req.user._id,
-        courseId: req.params.courseId,
-    });
+    try {
+        const roadmap = await Roadmap.findOne({
+            userId: req.user._id,
+            courseId: req.params.courseId,
+        });
 
-    const assessment = await Assessment.findOne({
-        userId: req.user._id,
-        courseId: req.params.courseId,
-    }).sort({ createdAt: -1 });
+        const assessment = await Assessment.findOne({
+            userId: req.user._id,
+            courseId: req.params.courseId,
+        }).sort({ createdAt: -1 });
 
-    if (!roadmap || !assessment) {
-        return res.status(400).json({ message: "Insufficient data to adapt roadmap" });
-    }
-
-    const completed = roadmap.steps.filter(s => s.status === "completed").length;
-
-    const aiRes = await axios.post(
-        `${process.env.AI_SERVICE_URL}/adapt-roadmap`,
-        {
-            course_name: "Course",
-            completed_steps: completed,
-            total_steps: roadmap.steps.length,
-            score: assessment.score,
-            confidence: assessment.confidence,
+        if (!roadmap || !assessment) {
+            return res.status(400).json({ message: "Insufficient data to adapt roadmap" });
         }
-    );
 
-    res.json(aiRes.data);
+        const completed = roadmap.steps.filter(s => s.status === "completed").length;
+
+        const aiRes = await axios.post(
+            `${process.env.AI_SERVICE_URL}/adapt-roadmap`,
+            {
+                course_name: "Course",
+                completed_steps: completed,
+                total_steps: roadmap.steps.length,
+                score: assessment.score,
+                confidence: assessment.confidence,
+            }
+        );
+
+        res.json(aiRes.data);
+    } catch (error) {
+        console.error("Error getting roadmap adaptation:", error);
+        res.status(500).json({ 
+            message: "Failed to get roadmap adaptation",
+            error: error.message 
+        });
+    }
 });
 
 router.get("/weekly-summary/:courseId", protect, async (req, res) => {
-    const roadmap = await Roadmap.findOne({
-        userId: req.user._id,
-        courseId: req.params.courseId,
-    });
+    try {
+        const roadmap = await Roadmap.findOne({
+            userId: req.user._id,
+            courseId: req.params.courseId,
+        });
 
-    const assessment = await Assessment.findOne({
-        userId: req.user._id,
-        courseId: req.params.courseId,
-    }).sort({ createdAt: -1 });
+        const assessment = await Assessment.findOne({
+            userId: req.user._id,
+            courseId: req.params.courseId,
+        }).sort({ createdAt: -1 });
 
-    if (!roadmap || !assessment) {
-        return res.status(400).json({ message: "Insufficient data" });
-    }
-
-    const completed = roadmap.steps.filter(s => s.status === "completed").length;
-    const progress = Math.round((completed / roadmap.steps.length) * 100);
-
-    // TEMP values (later from habits analytics)
-    const avgStudy = 2.5;
-    const avgSleep = 6.5;
-
-    const aiRes = await axios.post(
-        `${process.env.AI_SERVICE_URL}/weekly-summary`,
-        {
-            course_name: "Course",
-            progress,
-            completed_steps: completed,
-            total_steps: roadmap.steps.length,
-            avg_study_hours: avgStudy,
-            avg_sleep_hours: avgSleep,
-            score: assessment.score,
-            confidence: assessment.confidence,
+        if (!roadmap || !assessment) {
+            return res.status(400).json({ message: "Insufficient data" });
         }
-    );
 
-    res.json(aiRes.data);
+        const completed = roadmap.steps.filter(s => s.status === "completed").length;
+        const progress = Math.round((completed / roadmap.steps.length) * 100);
+
+        // TEMP values (later from habits analytics)
+        const avgStudy = 2.5;
+        const avgSleep = 6.5;
+
+        const aiRes = await axios.post(
+            `${process.env.AI_SERVICE_URL}/weekly-summary`,
+            {
+                course_name: "Course",
+                progress,
+                completed_steps: completed,
+                total_steps: roadmap.steps.length,
+                avg_study_hours: avgStudy,
+                avg_sleep_hours: avgSleep,
+                score: assessment.score,
+                confidence: assessment.confidence,
+            }
+        );
+
+        res.json(aiRes.data);
+    } catch (error) {
+        console.error("Error getting weekly summary:", error);
+        res.status(500).json({ 
+            message: "Failed to get weekly summary",
+            error: error.message 
+        });
+    }
+});
+
+router.post("/generate/:courseId", protect, async (req, res) => {
+    try {
+        const course = await Course.findById(req.params.courseId);
+
+        if (!course) return res.status(404).json({ message: "Course not found" });
+
+        // Check if AI service is available
+        if (!process.env.AI_SERVICE_URL) {
+            return res.status(503).json({
+                message: "AI service URL not configured"
+            });
+        }
+
+        const roadmap = await generateRoadmap(course.name);
+
+        const saved = await Roadmap.create({
+            userId: req.user._id,
+            courseId: course._id,
+            steps: roadmap.steps.map(s => ({
+                ...s,
+                status: "pending"
+            })),
+        });
+
+        res.json(saved);
+    } catch (error) {
+        console.error("Error generating roadmap:", error);
+        res.status(500).json({
+            message: "Failed to generate roadmap",
+            error: error.message
+        });
+    }
 });
 
 

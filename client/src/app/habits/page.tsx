@@ -1,6 +1,7 @@
 "use client";
 import Protected from "@/components/Protected";
-import { logHabit, getRecentHabits } from "@/lib/api";
+import { logHabit, getRecentHabits, trackEvent } from "@/lib/api";
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -99,7 +100,23 @@ export default function Habits() {
 
   const submit = async () => {
     setLoading(true);
+
     const res = await logHabit(form);
+
+    // 🔥 ML EVENT TRACKING (THIS IS THE IMPORTANT PART)
+    trackEvent({
+      eventType: "daily_log_submitted",
+      metadata: {
+        sleep: Number(form.sleep) || 0,
+        study: Number(form.study) || 0,
+        entertainment: Number(form.entertainment) || 0,
+        exercise: Number(form.exercise) || 0,
+        foodQuality: form.foodQuality,
+        mood: form.mood,
+        stress: form.stress,
+      },
+    });
+
     alert(res.message);
     setForm(defaultForm);
     await loadHistory();
@@ -115,7 +132,6 @@ export default function Habits() {
     const existingLog = data.find((log: any) => log.date === today);
     if (existingLog) {
       setTodayLog(existingLog);
-      // Populate form with existing data
       setForm({
         sleep: existingLog.sleep || "",
         study: existingLog.study || "",
@@ -127,6 +143,7 @@ export default function Habits() {
       });
     } else {
       setTodayLog(null);
+      setForm(defaultForm);
     }
   };
 
