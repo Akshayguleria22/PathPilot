@@ -5,6 +5,7 @@ import Course from "../models/Course.js";
 import { protect } from "../middleware/auth.js";
 import Assessment from "../models/Assessment.js";
 import { generateRoadmap } from "../services/aiRoadmapService.js";
+import { getAiServiceUrl } from "../utils/urlHelper.js";
 
 const router = express.Router();
 
@@ -185,7 +186,7 @@ router.get("/adapt/:courseId", protect, async (req, res) => {
         const completed = roadmap.steps.filter(s => s.status === "completed").length;
 
         const aiRes = await axios.post(
-            `${process.env.AI_SERVICE_URL}/adapt-roadmap`,
+            `${getAiServiceUrl()}/adapt-roadmap`,
             {
                 course_name: "Course",
                 completed_steps: completed,
@@ -229,7 +230,7 @@ router.get("/weekly-summary/:courseId", protect, async (req, res) => {
         const avgSleep = 6.5;
 
         const aiRes = await axios.post(
-            `${process.env.AI_SERVICE_URL}/weekly-summary`,
+            `${getAiServiceUrl()}/weekly-summary`,
             {
                 course_name: "Course",
                 progress,
@@ -259,7 +260,8 @@ router.post("/generate/:courseId", protect, async (req, res) => {
         if (!course) return res.status(404).json({ message: "Course not found" });
 
         // Check if AI service is available
-        if (!process.env.AI_SERVICE_URL) {
+        const aiServiceUrl = getAiServiceUrl();
+        if (!aiServiceUrl) {
             return res.status(503).json({
                 message: "AI service URL not configured"
             });

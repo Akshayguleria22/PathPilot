@@ -63,10 +63,23 @@ export default function Analytics() {
       );
 
       const data = await res.json();
-      setAiAnalytics(data);
-      localStorage.setItem("behavioral_insights", JSON.stringify(data));
+
+      // Validate response has required fields
+      if (
+        data &&
+        data.burnout_risk &&
+        data.positive_trends &&
+        data.areas_needing_attention
+      ) {
+        setAiAnalytics(data);
+        localStorage.setItem("behavioral_insights", JSON.stringify(data));
+      } else {
+        console.error("Invalid AI analytics response:", data);
+        setAiAnalytics(null);
+      }
     } catch (error) {
       console.error("Failed to load AI analytics:", error);
+      setAiAnalytics(null);
     } finally {
       setLoadingAI(false);
     }

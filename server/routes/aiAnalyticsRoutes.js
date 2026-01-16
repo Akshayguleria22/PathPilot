@@ -33,9 +33,20 @@ Return STRICT JSON:
 `;
 
         const response = await getLLMResponse(prompt);
-        res.json(JSON.parse(response));
+        const parsedResponse = JSON.parse(response);
+
+        // Validate response structure
+        if (!parsedResponse.burnout_risk || !parsedResponse.positive_trends || !parsedResponse.risk_factors) {
+            throw new Error("Invalid AI response format");
+        }
+
+        res.json(parsedResponse);
     } catch (err) {
-        res.status(500).json({ message: "Analytics AI failed" });
+        console.error("Analytics AI error:", err.message);
+        res.status(500).json({
+            message: "Analytics AI failed",
+            error: process.env.NODE_ENV === 'development' ? err.message : undefined
+        });
     }
 });
 

@@ -1,8 +1,9 @@
 import axios from "axios";
+import { getAiServiceUrl } from "../utils/urlHelper.js";
 
 export const generateRoadmap = async (courseName) => {
     const res = await axios.post(
-        `${process.env.AI_SERVICE_URL}/generate-roadmap`,
+        `${getAiServiceUrl()}/generate-roadmap`,
         { 
             course_name: courseName,
             user_level: "beginner"

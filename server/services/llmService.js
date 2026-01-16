@@ -16,12 +16,17 @@ function getGroqClient() {
 
 
 export async function getLLMResponse(prompt) {
-    const client = getGroqClient();
-    const completion = await client.chat.completions.create({
-        model: "llama-3.1-8b-instant", // Updated to current model
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.4,
-    });
+    try {
+        const client = getGroqClient();
+        const completion = await client.chat.completions.create({
+            model: "llama-3.1-8b-instant", // Updated to current model
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.4,
+        });
 
-    return completion.choices[0].message.content;
+        return completion.choices[0].message.content;
+    } catch (error) {
+        console.error("LLM Service Error:", error.message);
+        throw new Error(`Failed to get LLM response: ${error.message}`);
+    }
 }
