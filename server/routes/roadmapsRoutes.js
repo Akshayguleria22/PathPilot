@@ -30,91 +30,93 @@ router.post("/adapt/:courseId", protect, async (req, res) => {
 
         const completed = roadmap.steps.filter(s => s.status === "completed").length;
 
-        const aiRes = await axios.post(
-            `${process.env.AI_SERVICE_URL}/adapt-roadmap`,
-            {
-                course_name: "Course",
-                completed_steps: completed,
-                total_steps: roadmap.steps.length,
-                score: assessment.score,
-                confidence: assessment.confidence,
-            }
-        );
+        try {
+            const aiRes = await axios.post(
+                `${getAiServiceUrl()}/adapt-roadmap`,
+                {
+                    course_name: "Course",
+                    completed_steps: completed,
+                    total_steps: roadmap.steps.length,
+                    score: assessment.score,
+                    confidence: assessment.confidence,
+                }
+            );
 
-    const actions = aiRes.data.actions || [];
+            const actions = aiRes.data.actions || [];
 
-    // RESET: Remove previously AI-generated steps and restore original statuses
-    // Also remove steps with known AI-generated titles (for backward compatibility)
-    const aiGeneratedTitles = [
-        "Extra Practice & Revision",
-        "Advanced Application Project"
-    ];
-    
-    roadmap.steps = roadmap.steps.filter(step => 
-        !step.aiGenerated && !aiGeneratedTitles.includes(step.title)
-    );
-    
-    roadmap.steps.forEach(step => {
-        if (step.originalStatus) {
-            step.status = step.originalStatus;
-            step.originalStatus = undefined;
-        }
-    });
+            // RESET: Remove previously AI-generated steps and restore original statuses
+            // Also remove steps with known AI-generated titles (for backward compatibility)
+            const aiGeneratedTitles = [
+                "Extra Practice & Revision",
+                "Advanced Application Project"
+            ];
 
-    // APPLY NEW ACTIONS
-    actions.forEach(action => {
-        if (action.type === "skip_intro") {
-            if (roadmap.steps.length > 0 && roadmap.steps[0].status !== "completed") {
-                roadmap.steps[0].originalStatus = roadmap.steps[0].status;
-                roadmap.steps[0].status = "completed";
-            }
-        }
+            roadmap.steps = roadmap.steps.filter(step =>
+                !step.aiGenerated && !aiGeneratedTitles.includes(step.title)
+            );
 
-        if (action.type === "add_practice") {
-            roadmap.steps.push({
-                title: "Extra Practice & Revision",
-                description: "Additional exercises added due to low assessment score.",
-                resources: [],
-                status: "pending",
-                aiGenerated: true,
-            });
-        }
-
-        if (action.type === "increase_challenge") {
-            roadmap.steps.push({
-                title: "Advanced Application Project",
-                description: "Real-world project to increase difficulty.",
-                resources: [],
-                status: "pending",
-                aiGenerated: true,
-            });
-        }
-
-        if (action.type === "reduce_load") {
             roadmap.steps.forEach(step => {
-                if (step.status === "pending") {
-                    step.originalStatus = step.status;
-                    step.status = "in-progress";
-                    return false;
+                if (step.originalStatus) {
+                    step.status = step.originalStatus;
+                    step.originalStatus = undefined;
                 }
             });
+
+            // APPLY NEW ACTIONS
+            actions.forEach(action => {
+                if (action.type === "skip_intro") {
+                    if (roadmap.steps.length > 0 && roadmap.steps[0].status !== "completed") {
+                        roadmap.steps[0].originalStatus = roadmap.steps[0].status;
+                        roadmap.steps[0].status = "completed";
+                    }
+                }
+
+                if (action.type === "add_practice") {
+                    roadmap.steps.push({
+                        title: "Extra Practice & Revision",
+                        description: "Additional exercises added due to low assessment score.",
+                        resources: [],
+                        status: "pending",
+                        aiGenerated: true,
+                    });
+                }
+
+                if (action.type === "increase_challenge") {
+                    roadmap.steps.push({
+                        title: "Advanced Application Project",
+                        description: "Real-world project to increase difficulty.",
+                        resources: [],
+                        status: "pending",
+                        aiGenerated: true,
+                    });
+                }
+
+                if (action.type === "reduce_load") {
+                    roadmap.steps.forEach(step => {
+                        if (step.status === "pending") {
+                            step.originalStatus = step.status;
+                            step.status = "in-progress";
+                            return false;
+                        }
+                    });
+                }
+            });
+
+            await roadmap.save();
+
+            res.json({
+                message: "Roadmap adapted automatically",
+                actionsApplied: actions.map(a => a.type),
+                roadmap,
+            });
+        } catch (aiError) {
+            console.error("AI service error:", aiError.message);
+            // If AI service fails, return error but don't crash
+            res.status(500).json({ 
+                message: "Failed to contact AI service for roadmap adaptation",
+                error: aiError.response?.data?.message || aiError.message
+            });
         }
-    });
-
-        await roadmap.save();
-
-        res.json({
-            message: "Roadmap adapted automatically",
-            actionsApplied: actions.map(a => a.type),
-            roadmap,
-        });
-    } catch (error) {
-        console.error("Error adapting roadmap:", error);
-        res.status(500).json({ 
-            message: "Failed to adapt roadmap",
-            error: error.message 
-        });
-    }
 });
 
 // Get roadmap for a course

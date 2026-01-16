@@ -109,13 +109,26 @@ export default function Analytics() {
 
   useEffect(() => {
     load();
-    // Load cached behavioral insights
+    // Load cached behavioral insights with validation
     const cached = localStorage.getItem("behavioral_insights");
     if (cached) {
       try {
-        setAiAnalytics(JSON.parse(cached));
+        const parsed = JSON.parse(cached);
+        // Validate cached data has required fields
+        if (
+          parsed &&
+          parsed.burnout_risk &&
+          parsed.positive_trends &&
+          parsed.risk_factors
+        ) {
+          setAiAnalytics(parsed);
+        } else {
+          // Invalid cached data, remove it
+          localStorage.removeItem("behavioral_insights");
+        }
       } catch (error) {
         console.error("Failed to parse cached insights:", error);
+        localStorage.removeItem("behavioral_insights");
       }
     }
 
@@ -413,7 +426,8 @@ export default function Analytics() {
                                 : "text-green-600 dark:text-green-400"
                             }`}
                           >
-                            {aiAnalytics.burnout_risk.toUpperCase()}
+                            {aiAnalytics.burnout_risk?.toUpperCase() ||
+                              "UNKNOWN"}
                           </span>
                         </p>
                       </div>
@@ -425,7 +439,7 @@ export default function Analytics() {
                           Positive Trends
                         </h4>
                         <ul className="space-y-2">
-                          {aiAnalytics.positive_trends.map(
+                          {aiAnalytics.positive_trends?.map(
                             (t: string, i: number) => (
                               <li
                                 key={i}
@@ -448,7 +462,7 @@ export default function Analytics() {
                           Risk Factors
                         </h4>
                         <ul className="space-y-2">
-                          {aiAnalytics.risk_factors.map(
+                          {aiAnalytics.risk_factors?.map(
                             (r: string, i: number) => (
                               <li
                                 key={i}
@@ -471,7 +485,8 @@ export default function Analytics() {
                           Next Week Focus:
                         </p>
                         <p className="mt-2 text-white/90">
-                          {aiAnalytics.next_week_focus}
+                          {aiAnalytics.next_week_focus ||
+                            "Focus on maintaining consistency in your studies."}
                         </p>
                       </div>
 
