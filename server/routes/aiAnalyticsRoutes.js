@@ -37,15 +37,19 @@ Return STRICT JSON:
 
         // Validate response structure
         if (!parsedResponse.burnout_risk || !parsedResponse.positive_trends || !parsedResponse.risk_factors) {
+            console.error("Invalid AI response structure:", parsedResponse);
             throw new Error("Invalid AI response format");
         }
 
         res.json(parsedResponse);
     } catch (err) {
         console.error("Analytics AI error:", err.message);
+
+        // Send a proper error response instead of partial data
         res.status(500).json({
             message: "Analytics AI failed",
-            error: process.env.NODE_ENV === 'development' ? err.message : undefined
+            error: process.env.NODE_ENV === 'development' ? err.message : "AI service temporarily unavailable",
+            // Don't send invalid data that would crash the frontend
         });
     }
 });

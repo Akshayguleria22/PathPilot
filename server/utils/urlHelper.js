@@ -4,7 +4,7 @@
  * @returns {string} - URL without trailing slash
  */
 export function normalizeUrl(url) {
-    if (!url) return '';
+    if (!url || typeof url !== 'string') return '';
     return url.replace(/\/+$/, ''); // Remove one or more trailing slashes
 }
 

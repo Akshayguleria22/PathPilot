@@ -64,12 +64,19 @@ export default function Analytics() {
 
       const data = await res.json();
 
+      // Check if response is an error
+      if (!res.ok || data.message) {
+        console.error("AI analytics error:", data.message || data.error);
+        setAiAnalytics(null);
+        return;
+      }
+
       // Validate response has required fields
       if (
         data &&
         data.burnout_risk &&
         data.positive_trends &&
-        data.areas_needing_attention
+        data.risk_factors
       ) {
         setAiAnalytics(data);
         localStorage.setItem("behavioral_insights", JSON.stringify(data));
