@@ -28,8 +28,10 @@ PathPilot is an intelligent academic companion that combines **AI-powered course
 - **🤖 AI-Driven Roadmaps**: Generate complete course learning paths using GROQ LLM
 - **🎓 Smart Resource Discovery**: ML-ranked videos, articles, and documentation from YouTube & SERP APIs
 - **📊 Behavioral Analytics**: Track habits, detect burnout patterns, and get personalized insights
+- **📈 Weekly Progress Tracking**: Auto-resetting weekly goals with activity logging and history
+- **🔍 Integrated Search**: Multi-source search directly in courses page for quick resource discovery
 - **🏆 Gamification**: Streak tracking, badge system, and achievement milestones
-- **🌓 Beautiful UI**: Professional zinc/gray theme with seamless dark mode
+- **🌓 Beautiful UI**: Professional zinc/gray theme with seamless dark mode and smooth animations
 
 
 ---
@@ -87,9 +89,20 @@ PathPilot is an intelligent academic companion that combines **AI-powered course
 - **Dynamic Course Dashboard**: Real-time progress tracking with circular progress indicators
 - **AI Learning Insights**: Smart recommendations for next focus areas
 - **Category Organization**: Academic, Skill-based, or Hobby courses
-- **Weekly Targets**: Set and monitor study hour goals
+- **Weekly Progress System**: 
+  - Auto-resetting weekly goals (7-day cycle)
+  - Track hours spent and tasks completed
+  - View weekly progress percentage (hours/target × 100%)
+  - Activity logging with notes and timestamps
+- **Activity History**: View recent 10 activities with hours, tasks, and notes
+- **Course Details Modal**: 
+  - Weekly progress card with current stats
+  - Overall progress tracking
+  - Activity logging form (hours, tasks, notes)
+  - Stats grid showing total activities and tasks completed
 - **Interactive Roadmaps**: Click-to-explore learning paths with resource panels
 - **Progress Persistence**: MongoDB-backed course state tracking
+- **Integrated Search**: Search for resources directly from courses page
 
 ### 📅 Advanced Habit Tracking
 - **Comprehensive Daily Logs**:
@@ -121,10 +134,12 @@ PathPilot is an intelligent academic companion that combines **AI-powered course
 - **Export Ready**: Generate reports from analytics data
 
 ### 🔍 Smart Search
+- **Course-Integrated Search**: Search panel available directly in courses page
 - **Multi-Source Search**: Query across web, learning platforms, and news
 - **Real-time Results**: Fast SERP API integration
 - **Context-Aware**: Search within specific course contexts
 - **Resource Filtering**: Type-based filtering (videos, articles, docs)
+- **Quick Access**: No need to navigate away from course management
 
 ### 🔐 Security & Authentication
 - **JWT-Based Auth**: Secure token-based authentication
@@ -132,6 +147,7 @@ PathPilot is an intelligent academic companion that combines **AI-powered course
 - **Protected Routes**: Middleware-based route protection
 - **Persistent Sessions**: Secure localStorage token management
 - **API Key Security**: Environment-based secret management
+- **Auto-Dismiss Alerts**: User-friendly notifications with automatic timeout
 
 ---
 
@@ -187,7 +203,7 @@ PathPilot/
 ├── 📱 client/                        # Next.js Frontend (TypeScript)
 │   ├── src/
 │   │   ├── app/                      # App Router Pages
-│   │   │   ├── page.tsx              # Landing page
+│   │   │   ├── page.tsx              # AI-focused landing page with hero section
 │   │   │   ├── layout.tsx            # Root layout with theme provider
 │   │   │   ├── globals.css           # Global styles + Tailwind
 │   │   │   ├── dashboard/            # Main dashboard
@@ -420,8 +436,21 @@ Navigate to **http://localhost:3000** and start your learning journey! 🎉
   - Weekly target hours
 - Click **"Generate Roadmap"** for AI-powered learning path
 
-#### 3. **Explore Your Roadmap**
-- Click on any course to view its roadmap
+#### 3. **Track Your Course Progress**
+- Click **"View Details"** on any course card
+- See comprehensive course modal with:
+  - Weekly progress card (auto-resets every 7 days)
+  - Activity logging form to record hours, tasks, and notes
+  - Recent activity history (last 10 entries)
+  - Stats grid showing total activities and tasks
+- Log daily activities:
+  - Enter hours spent (supports decimals like 2.5)
+  - Record tasks completed
+  - Add optional notes about what you worked on
+- Weekly progress updates automatically based on target hours
+
+#### 4. **Explore Your Roadmap**
+- Click **"View Roadmap"** from course details
 - See step-by-step learning milestones
 - Click **"Fetch Resources"** on any step to get:
   - 📹 Educational YouTube videos
@@ -429,7 +458,12 @@ Navigate to **http://localhost:3000** and start your learning journey! 🎉
   - 📚 Official documentation
 - Resources are ML-ranked for quality and relevance
 
-#### 4. **Track Daily Habits**
+#### 5. **Search for Resources**
+- Use the integrated search panel in courses page
+- Search across multiple sources without leaving the page
+- Get instant results for learning materials
+
+#### 6. **Track Daily Habits**
 - Go to **"Daily Habit Tracker"**
 - Log your daily metrics:
   - Sleep hours, study time, exercise
@@ -437,13 +471,13 @@ Navigate to **http://localhost:3000** and start your learning journey! 🎉
 - View **"Recent Activity"** tab for history
 - Check **"Activity Calendar"** for visual heatmap
 
-#### 5. **Monitor Analytics**
+#### 7. **Monitor Analytics**
 - Visit **"Weekly Analytics"** page
 - See aggregated performance metrics
 - Get **AI burnout warnings** if stress is high
 - View trend charts and comparisons
 
-#### 6. **Earn Badges**
+#### 8. **Earn Badges**
 - Navigate to **"Achievements"**
 - Unlock badges for:
   - Maintaining streaks (7/30/100 days)
@@ -579,6 +613,29 @@ Content-Type: application/json
 
 {
   "progress": 75.5
+}
+```
+
+#### Log Course Activity
+```http
+POST /api/courses/:courseId/log-activity
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "hoursSpent": 2.5,
+  "tasksCompleted": 3,
+  "note": "Completed React hooks tutorial"
+}
+
+Response: 200 OK
+{
+  "message": "Activity logged successfully",
+  "course": {
+    "weeklyProgress": 62.5,
+    "hoursThisWeek": 5.0,
+    "activityLog": [...]
+  }
 }
 ```
 
@@ -980,10 +1037,16 @@ chore: Build process or auxiliary tool changes
 - [x] Comprehensive habit tracking
 - [x] Burnout detection system
 - [x] Badge & achievement system
-- [x] Dark mode UI
+- [x] Dark mode UI with smooth animations
 - [x] Calendar heatmap visualization
+- [x] Weekly progress tracking with auto-reset
+- [x] Activity logging system for courses
+- [x] Integrated search panel in courses
+- [x] Auto-dismiss alerts and notifications
+- [x] AI-focused landing page design
 
 ### 🚧 In Progress (v1.1)
+- [ ] OAuth integration (Google & GitHub) - Paused for stability
 - [ ] Mobile app (React Native)
 - [ ] Collaborative study groups
 - [ ] Real-time chat for study buddies
