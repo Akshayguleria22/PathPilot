@@ -139,7 +139,7 @@ export default function Login() {
 
             <div className="text-center pt-3 sm:pt-4 border-t border-zinc-200 dark:border-zinc-800">
               <p className="text-sm sm:text-base text-zinc-600 dark:text-zinc-400">
-                Don't have an account?{" "}
+                Don&apos;t have an account?{" "}
                 <Link
                   href="/register"
                   className="text-zinc-800 dark:text-zinc-100 font-semibold hover:underline"

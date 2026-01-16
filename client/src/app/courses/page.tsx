@@ -7,6 +7,64 @@ import {
   generateRoadmap,
   logCourseActivity,
 } from "@/lib/api";
+
+interface Course {
+  _id: string;
+  name: string;
+  category: string;
+  progress: number;
+  weeklyProgress: number;
+  hoursThisWeek: number;
+  weeklyTarget: number;
+  targetHours: number;
+  activityLog?: Activity[];
+}
+
+interface Activity {
+  hoursSpent: number;
+  tasksCompleted: number;
+  note: string;
+  timestamp: string;
+  date: string;
+}
+
+interface AiInsights {
+  message?: string;
+  recommendations?: string[];
+  focus_course?: string;
+  learning_velocity?: string;
+  burnout_risk?: string;
+  insights?: string[];
+}
+
+interface CourseAdjustment {
+  courseId: string;
+  courseName: string;
+  newTargetHours: number;
+  oldTargetHours: number;
+  adjustment: string;
+  reason: string;
+}
+
+interface HabitAdjustments {
+  sleepTarget?: number;
+  studyTarget?: number;
+  reason?: string;
+}
+
+interface GoalSuggestionResponse {
+  overallAdvice?: string;
+  courseAdjustments?: CourseAdjustment[];
+  habitAdjustments?: HabitAdjustments;
+}
+
+interface GoalSuggestion {
+  courseId: string;
+  courseName: string;
+  adjustment: string;
+  reason: string;
+  newTargetHours: number;
+}
 import Protected from "@/components/Protected";
 import SearchPanel from "@/components/SearchPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,7 +105,7 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 
 export default function Courses() {
-  const [courses, setCourses] = useState([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [form, setForm] = useState({
     name: "",
     category: "Academic",
@@ -59,10 +117,11 @@ export default function Courses() {
   const [generatingRoadmap, setGeneratingRoadmap] = useState<string | null>(
     null
   );
-  const [aiInsights, setAiInsights] = useState<any>(null);
+  const [aiInsights, setAiInsights] = useState<AiInsights | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
 
-  const [goalSuggestions, setGoalSuggestions] = useState(null);
+  const [goalSuggestions, setGoalSuggestions] =
+    useState<GoalSuggestionResponse | null>(null);
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [activityForm, setActivityForm] = useState({
     hoursSpent: 0,
@@ -107,7 +166,7 @@ export default function Courses() {
     }
   };
 
-  const applyCourseGoal = async (adjustment: any) => {
+  const applyCourseGoal = async (adjustment: GoalSuggestion) => {
     const toastId = toast.loading("Applying goal adjustment...");
     try {
       const res = await fetch(
@@ -139,8 +198,7 @@ export default function Courses() {
       } else {
         throw new Error("Failed to apply adjustment");
       }
-    } catch (error) {
-      console.error("Failed to apply course goal:", error);
+    } catch {
       toast.error("Failed to apply adjustment", { id: toastId });
     }
   };
@@ -148,6 +206,10 @@ export default function Courses() {
   const applyAllCourseGoals = async () => {
     const toastId = toast.loading("Applying all adjustments...");
     try {
+      if (!goalSuggestions?.courseAdjustments) {
+        toast.error("No adjustments available", { id: toastId });
+        return;
+      }
       for (const adjustment of goalSuggestions.courseAdjustments) {
         await applyCourseGoal(adjustment);
       }
@@ -155,7 +217,7 @@ export default function Courses() {
       toast.success("All goals updated successfully!", { id: toastId });
       // Dispatch event to notify other pages
       window.dispatchEvent(new CustomEvent("targetUpdated"));
-    } catch (error) {
+    } catch {
       toast.error("Failed to apply some adjustments", { id: toastId });
     }
   };
@@ -194,7 +256,7 @@ export default function Courses() {
       setLoadingAI(false);
     }
   };
-  const [selectedCourse, setSelectedCourse] = useState<any>(null);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
 
   const loadCourses = async () => {
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -220,7 +282,7 @@ export default function Courses() {
       setForm({ name: "", category: "Academic", targetHours: 5 });
       setShowForm(false);
       loadCourses();
-    } catch (error) {
+    } catch {
       toast.error("Failed to add course", { id: toastId });
     } finally {
       setSubmitting(false);
@@ -299,7 +361,7 @@ export default function Courses() {
     title: string;
     value: string;
     description: string;
-    icon: any;
+    icon: React.ElementType;
   }) => (
     <motion.div
       whileHover={{ scale: 1.03 }}
@@ -517,7 +579,7 @@ export default function Courses() {
                     </p>
                     <p className="text-4xl font-bold text-zinc-800 dark:text-zinc-100">
                       {
-                        courses.filter((c: any) => c.category === "Academic")
+                        courses.filter((c: Course) => c.category === "Academic")
                           .length
                       }
                     </p>
@@ -538,7 +600,7 @@ export default function Courses() {
                     </p>
                     <p className="text-4xl font-bold text-zinc-800 dark:text-zinc-100">
                       {
-                        courses.filter((c: any) => c.category === "Skill")
+                        courses.filter((c: Course) => c.category === "Skill")
                           .length
                       }
                     </p>
@@ -561,7 +623,7 @@ export default function Courses() {
                       {courses.length > 0
                         ? Math.round(
                             courses.reduce(
-                              (acc: number, c: any) => acc + c.progress,
+                              (acc: number, c: Course) => acc + c.progress,
                               0
                             ) / courses.length
                           )
@@ -765,13 +827,13 @@ export default function Courses() {
                 No courses yet
               </h3>
               <p className="text-zinc-500 dark:text-zinc-500">
-                Click "Add New Course" to get started!
+                Click &quot;Add New Course&quot; to get started!
               </p>
             </motion.div>
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
               <AnimatePresence>
-                {courses.map((course: any, index: number) => (
+                {courses.map((course: Course, index: number) => (
                   <motion.div
                     key={course._id}
                     initial={{ opacity: 0, scale: 0.9 }}
@@ -868,7 +930,7 @@ export default function Courses() {
               >
                 <button
                   onClick={() => setSelectedCourse(null)}
-                  className="absolute top-4 right-4 p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors z-10 sticky"
+                  className="absolute top-4 right-4 p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors z-10"
                 >
                   <FaTimes className="text-xl text-zinc-600 dark:text-zinc-400" />
                 </button>
@@ -892,7 +954,7 @@ export default function Courses() {
                       <div>
                         <h3 className="text-lg font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
                           <FaCalendarAlt className="text-blue-600 dark:text-blue-400" />
-                          This Week's Progress
+                          This Week&apos;s Progress
                         </h3>
                         <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                           Resets every 7 days
@@ -968,7 +1030,8 @@ export default function Courses() {
                       </div>
                       <p className="text-2xl font-bold text-zinc-800 dark:text-zinc-100">
                         {selectedCourse.activityLog?.reduce(
-                          (sum, log) => sum + (log.tasksCompleted || 0),
+                          (sum: number, log: Activity) =>
+                            sum + (log.tasksCompleted || 0),
                           0
                         ) || 0}
                       </p>
@@ -991,7 +1054,7 @@ export default function Courses() {
                             .slice()
                             .reverse()
                             .slice(0, 10)
-                            .map((log, index) => (
+                            .map((log: Activity, index: number) => (
                               <motion.div
                                 key={index}
                                 initial={{ opacity: 0, x: -20 }}
@@ -1026,7 +1089,7 @@ export default function Courses() {
                                 </div>
                                 {log.note && (
                                   <p className="text-xs text-zinc-600 dark:text-zinc-400 italic">
-                                    "{log.note}"
+                                    &quot;{log.note}&quot;
                                   </p>
                                 )}
                               </motion.div>
@@ -1039,7 +1102,7 @@ export default function Courses() {
                   <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-xl p-6 border border-green-200 dark:border-green-800">
                     <h3 className="text-lg font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-2 mb-4">
                       <FaPlus className="text-green-600 dark:text-green-400" />
-                      Log Today's Activity
+                      Log Today&apos;s Activity
                     </h3>
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
@@ -1219,7 +1282,7 @@ export default function Courses() {
                         </h3>
                         <div className="space-y-3">
                           {goalSuggestions.courseAdjustments.map(
-                            (adjustment: any, index: number) => (
+                            (adjustment: CourseAdjustment, index: number) => (
                               <motion.div
                                 key={adjustment.courseId}
                                 initial={{ opacity: 0, x: -20 }}
@@ -1312,7 +1375,7 @@ export default function Courses() {
                       <div className="text-center py-8">
                         <FaCheck className="text-6xl text-green-500 mx-auto mb-4" />
                         <h3 className="text-2xl font-bold text-zinc-800 dark:text-zinc-100 mb-2">
-                          You're on track!
+                          You&apos;re on track!
                         </h3>
                         <p className="text-zinc-600 dark:text-zinc-400">
                           Your current goals are well-balanced. Keep up the
