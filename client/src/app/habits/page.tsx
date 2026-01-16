@@ -153,41 +153,43 @@ export default function Habits() {
 
   return (
     <Protected>
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-6 md:p-10 transition-colors duration-300">
-        <div className="max-w-6xl mx-auto space-y-8">
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-4 sm:p-6 md:p-10 transition-colors duration-300">
+        <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8">
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <h1 className="text-4xl md:text-5xl font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-3">
-              <FaCalendarAlt className="text-zinc-600 dark:text-zinc-400" />
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-2 sm:gap-3">
+              <FaCalendarAlt className="text-zinc-600 dark:text-zinc-400 text-2xl sm:text-3xl md:text-4xl" />
               Daily Habit Tracker
             </h1>
-            <p className="text-zinc-600 dark:text-zinc-400 mt-2 text-lg">
+            <p className="text-zinc-600 dark:text-zinc-400 mt-2 text-base sm:text-lg">
               Build better habits, one day at a time
             </p>
           </motion.div>
 
-          <Tabs defaultValue="log" className="space-y-6">
-            <TabsList className="grid w-full max-w-md grid-cols-2 h-12">
+          <Tabs defaultValue="log" className="space-y-4 sm:space-y-6">
+            <TabsList className="grid w-full max-w-md grid-cols-2 h-11 sm:h-12">
               <TabsTrigger
                 value="log"
-                className="text-lg flex items-center gap-2"
+                className="text-base sm:text-lg flex items-center gap-2"
               >
                 <FaSave className="text-sm" />
-                Log Today
+                <span className="hidden xs:inline">Log Today</span>
+                <span className="xs:hidden">Log</span>
               </TabsTrigger>
               <TabsTrigger
                 value="history"
-                className="text-lg flex items-center gap-2"
+                className="text-base sm:text-lg flex items-center gap-2"
               >
                 <FaChartLine className="text-sm" />
-                History
+                <span className="hidden xs:inline">History</span>
+                <span className="xs:hidden">History</span>
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="log" className="space-y-6">
+            <TabsContent value="log" className="space-y-4 sm:space-y-6">
               {/* Today's Status Alert */}
               {todayLog && (
                 <motion.div

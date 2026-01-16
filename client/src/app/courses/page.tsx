@@ -1,8 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { addCourse, getCourses, generateRoadmap } from "@/lib/api";
+import {
+  addCourse,
+  getCourses,
+  generateRoadmap,
+  logCourseActivity,
+} from "@/lib/api";
 import Protected from "@/components/Protected";
+import SearchPanel from "@/components/SearchPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +21,16 @@ import {
   FaTrophy,
   FaChartLine,
   FaTimes,
+  FaBrain,
+  FaRedo,
+  FaLightbulb,
+  FaRocket,
+  FaTachometerAlt,
+  FaExclamationTriangle,
+  FaCheck,
+  FaArrowRight,
+  FaCalendarAlt,
+  FaFire,
 } from "react-icons/fa";
 import { MdCategory, MdTimer } from "react-icons/md";
 import { Progress } from "@/components/ui/progress";
@@ -43,6 +59,141 @@ export default function Courses() {
   const [generatingRoadmap, setGeneratingRoadmap] = useState<string | null>(
     null
   );
+  const [aiInsights, setAiInsights] = useState<any>(null);
+  const [loadingAI, setLoadingAI] = useState(false);
+
+  const [goalSuggestions, setGoalSuggestions] = useState(null);
+  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [activityForm, setActivityForm] = useState({
+    hoursSpent: 0,
+    tasksCompleted: 0,
+    note: "",
+  });
+  const [loggingActivity, setLoggingActivity] = useState(false);
+
+  // Load cached AI insights on mount
+  useEffect(() => {
+    const cachedInsights = localStorage.getItem("ai_insights");
+    if (cachedInsights) {
+      try {
+        setAiInsights(JSON.parse(cachedInsights));
+      } catch (error) {
+        console.error("Failed to parse cached insights:", error);
+        localStorage.removeItem("ai_insights");
+      }
+    }
+  }, []);
+
+  const fetchGoalAdjustments = async () => {
+    const toastId = toast.loading("Analyzing your goals...");
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/ai/goals/goal-adjustments`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+      const data = await res.json();
+      setGoalSuggestions(data);
+      setShowGoalModal(true);
+      toast.success("Goal recommendations ready!", { id: toastId });
+    } catch (error) {
+      console.error("Failed to fetch goal adjustments:", error);
+      toast.error("Failed to generate recommendations", { id: toastId });
+    }
+  };
+
+  const applyCourseGoal = async (adjustment: any) => {
+    const toastId = toast.loading("Applying goal adjustment...");
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/habits/apply-goal`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({
+            type: "course",
+            payload: {
+              courseId: adjustment.courseId,
+              newTargetHours: adjustment.newTargetHours,
+            },
+          }),
+        }
+      );
+
+      if (res.ok) {
+        toast.success(
+          `Updated ${adjustment.courseName} to ${adjustment.newTargetHours} hrs/week`,
+          { id: toastId }
+        );
+        await loadCourses(); // Reload courses to show updated targets
+        // Dispatch event to notify other pages
+        window.dispatchEvent(new CustomEvent("targetUpdated"));
+      } else {
+        throw new Error("Failed to apply adjustment");
+      }
+    } catch (error) {
+      console.error("Failed to apply course goal:", error);
+      toast.error("Failed to apply adjustment", { id: toastId });
+    }
+  };
+
+  const applyAllCourseGoals = async () => {
+    const toastId = toast.loading("Applying all adjustments...");
+    try {
+      for (const adjustment of goalSuggestions.courseAdjustments) {
+        await applyCourseGoal(adjustment);
+      }
+      setShowGoalModal(false);
+      toast.success("All goals updated successfully!", { id: toastId });
+      // Dispatch event to notify other pages
+      window.dispatchEvent(new CustomEvent("targetUpdated"));
+    } catch (error) {
+      toast.error("Failed to apply some adjustments", { id: toastId });
+    }
+  };
+
+  const loadAIInsights = async () => {
+    setLoadingAI(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/ai/course-insights`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({
+            courses,
+            habits: [],
+            streak: 0,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
+      const data = await res.json();
+      setAiInsights(data);
+
+      localStorage.setItem("ai_insights", JSON.stringify(data));
+    } catch (error) {
+      console.error("AI Insights Error:", error);
+      toast.error("Failed to load AI insights");
+    } finally {
+      setLoadingAI(false);
+    }
+  };
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
 
   const loadCourses = async () => {
@@ -91,6 +242,37 @@ export default function Courses() {
     }
   };
 
+  const handleLogActivity = async () => {
+    if (!selectedCourse) return;
+
+    if (activityForm.hoursSpent <= 0 && activityForm.tasksCompleted <= 0) {
+      toast.error("Please enter hours spent or tasks completed");
+      return;
+    }
+
+    setLoggingActivity(true);
+    const toastId = toast.loading("Logging activity...");
+
+    try {
+      const res = await logCourseActivity(selectedCourse._id, activityForm);
+      toast.success("Activity logged successfully!", { id: toastId });
+
+      // Update the selected course with new data
+      setSelectedCourse(res.course);
+
+      // Reset form
+      setActivityForm({ hoursSpent: 0, tasksCompleted: 0, note: "" });
+
+      // Reload courses to update the list
+      await loadCourses();
+    } catch (error) {
+      console.error("Error logging activity:", error);
+      toast.error("Failed to log activity", { id: toastId });
+    } finally {
+      setLoggingActivity(false);
+    }
+  };
+
   useEffect(() => {
     loadCourses();
   }, []);
@@ -108,10 +290,43 @@ export default function Courses() {
     }
   };
 
+  const InsightCard = ({
+    title,
+    value,
+    description,
+    icon: Icon,
+  }: {
+    title: string;
+    value: string;
+    description: string;
+    icon: any;
+  }) => (
+    <motion.div
+      whileHover={{ scale: 1.03 }}
+      transition={{ duration: 0.3 }}
+      className="bg-zinc-100 dark:bg-zinc-800 rounded-xl p-5 shadow-md border border-zinc-200 dark:border-zinc-700"
+    >
+      <div className="flex items-center gap-3 mb-3">
+        <div className="p-2 bg-zinc-800 dark:bg-zinc-100 rounded-lg">
+          <Icon className="text-xl text-white dark:text-zinc-900" />
+        </div>
+        <div className="flex-1">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wide font-medium">
+            {title}
+          </p>
+          <p className="text-xl font-bold text-zinc-800 dark:text-zinc-100 mt-1">
+            {value}
+          </p>
+        </div>
+      </div>
+      <p className="text-sm text-zinc-600 dark:text-zinc-400">{description}</p>
+    </motion.div>
+  );
+
   return (
     <Protected>
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-6 md:p-10 transition-colors duration-300">
-        <div className="max-w-7xl mx-auto space-y-8">
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-4 sm:p-6 md:p-10 transition-colors duration-300">
+        <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -120,11 +335,11 @@ export default function Courses() {
             className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
           >
             <div>
-              <h1 className="text-4xl md:text-5xl font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-3">
-                <FaBook className="text-zinc-600 dark:text-zinc-400" />
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-2 sm:gap-3">
+                <FaBook className="text-zinc-600 dark:text-zinc-400 text-2xl sm:text-3xl md:text-4xl" />
                 My Courses
               </h1>
-              <p className="text-zinc-600 dark:text-zinc-400 mt-2 text-lg">
+              <p className="text-zinc-600 dark:text-zinc-400 mt-2 text-base sm:text-lg">
                 Track and manage your learning journey
               </p>
             </div>
@@ -133,15 +348,25 @@ export default function Courses() {
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               transition={{ duration: 0.3 }}
+              className="w-full md:w-auto"
             >
               <Button
                 onClick={() => setShowForm(!showForm)}
-                className="bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-200 shadow-md h-12 px-6 text-lg transition-all duration-300"
+                className="w-full md:w-auto bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-200 shadow-md h-11 sm:h-12 px-5 sm:px-6 text-base sm:text-lg transition-all duration-300"
               >
                 <FaPlus className="mr-2" />
                 Add New Course
               </Button>
             </motion.div>
+          </motion.div>
+
+          {/* Search Panel */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
+            <SearchPanel />
           </motion.div>
 
           {/* Add Course Form */}
@@ -350,138 +575,172 @@ export default function Courses() {
             </motion.div>
           )}
 
-          {/* AI-Powered Learning Insights */}
+          {/* AI Learning Coach */}
           {!loading && courses.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5, duration: 0.7 }}
+              transition={{ delay: 0.3, duration: 0.7 }}
             >
-              <Card className="bg-gradient-to-br from-purple-500/10 via-blue-500/10 to-cyan-500/10 dark:from-purple-500/20 dark:via-blue-500/20 dark:to-cyan-500/20 border-2 border-purple-500/30 dark:border-purple-400/30 shadow-xl">
+              <Card className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-lg">
                 <CardHeader>
-                  <CardTitle className="text-2xl text-zinc-800 dark:text-zinc-100 flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg">
-                      <FaChartLine className="text-white text-xl" />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-2xl text-zinc-800 dark:text-zinc-100 flex items-center gap-3">
+                        <div className="p-2 bg-zinc-800 dark:bg-zinc-100 rounded-lg">
+                          <FaBrain className="text-white dark:text-zinc-900 text-xl" />
+                        </div>
+                        AI Learning Coach
+                      </CardTitle>
+                      <p className="text-zinc-600 dark:text-zinc-400 mt-2">
+                        {aiInsights
+                          ? "Personalized insights from your learning behavior"
+                          : "Get AI-powered analysis of your learning journey"}
+                      </p>
                     </div>
-                    AI-Powered Learning Insights
-                  </CardTitle>
-                  <p className="text-zinc-600 dark:text-zinc-400 mt-2">
-                    Personalized recommendations based on your learning patterns
-                  </p>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={loadAIInsights}
+                      disabled={loadingAI}
+                      className="p-3 bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Refresh AI Insights"
+                    >
+                      {loadingAI ? (
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{
+                            duration: 1,
+                            repeat: Infinity,
+                            ease: "linear",
+                          }}
+                        >
+                          <FaRedo className="text-xl" />
+                        </motion.div>
+                      ) : (
+                        <FaRedo className="text-xl" />
+                      )}
+                    </motion.button>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid md:grid-cols-3 gap-4">
-                    <motion.div
-                      whileHover={{ scale: 1.05 }}
-                      className="p-5 bg-white/80 dark:bg-zinc-900/80 backdrop-blur rounded-xl border border-purple-200 dark:border-purple-800 shadow-md"
-                    >
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center text-2xl">
-                          🚀
-                        </div>
-                        <div>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
-                            Next Focus
-                          </p>
-                          <p className="text-lg font-bold text-zinc-800 dark:text-zinc-100">
-                            {courses.find((c: any) => c.progress < 50)?.name ||
-                              courses[0]?.name ||
-                              "Keep learning!"}
-                          </p>
-                        </div>
+                  {loadingAI ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="text-center">
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{
+                            duration: 2,
+                            repeat: Infinity,
+                            ease: "linear",
+                          }}
+                          className="mb-4 inline-block"
+                        >
+                          <FaBrain className="text-5xl text-zinc-400 dark:text-zinc-600" />
+                        </motion.div>
+                        <p className="text-sm text-zinc-500">
+                          Analyzing your learning data...
+                        </p>
                       </div>
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                        {courses.find((c: any) => c.progress < 50)
-                          ? "This course needs attention to maintain momentum"
-                          : "All courses progressing well!"}
-                      </p>
-                    </motion.div>
-
-                    <motion.div
-                      whileHover={{ scale: 1.05 }}
-                      className="p-5 bg-white/80 dark:bg-zinc-900/80 backdrop-blur rounded-xl border border-blue-200 dark:border-blue-800 shadow-md"
-                    >
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg flex items-center justify-center text-2xl">
-                          📊
-                        </div>
-                        <div>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
-                            Learning Velocity
-                          </p>
-                          <p className="text-lg font-bold text-zinc-800 dark:text-zinc-100">
-                            {courses.length > 0
-                              ? Math.round(
-                                  courses.reduce(
-                                    (acc: number, c: any) => acc + c.progress,
-                                    0
-                                  ) /
-                                    courses.length /
-                                    10
-                                )
-                              : 0}
-                            x
-                          </p>
-                        </div>
+                    </div>
+                  ) : aiInsights ? (
+                    <>
+                      {/* AI Insights Grid */}
+                      <div className="grid md:grid-cols-3 gap-4 mb-6">
+                        <InsightCard
+                          title="Next Focus"
+                          value={aiInsights.focus_course || "N/A"}
+                          description="Course needing immediate attention"
+                          icon={FaRocket}
+                        />
+                        <InsightCard
+                          title="Learning Velocity"
+                          value={aiInsights.learning_velocity || "N/A"}
+                          description="Based on progress & consistency"
+                          icon={FaTachometerAlt}
+                        />
+                        <InsightCard
+                          title="Burnout Risk"
+                          value={aiInsights.burnout_risk || "Low"}
+                          description="Monitor your learning balance"
+                          icon={FaExclamationTriangle}
+                        />
                       </div>
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                        Your average progress rate across all courses
-                      </p>
-                    </motion.div>
 
-                    <motion.div
-                      whileHover={{ scale: 1.05 }}
-                      className="p-5 bg-white/80 dark:bg-zinc-900/80 backdrop-blur rounded-xl border border-green-200 dark:border-green-800 shadow-md"
-                    >
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center text-2xl">
-                          🎯
+                      {/* AI Recommendations */}
+                      {aiInsights?.insights && (
+                        <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-5 border border-zinc-200 dark:border-zinc-700">
+                          <h4 className="text-lg font-semibold text-zinc-800 dark:text-zinc-100 mb-3 flex items-center gap-2">
+                            <FaLightbulb className="text-zinc-600 dark:text-zinc-400" />
+                            Personalized Recommendations
+                          </h4>
+                          <ul className="space-y-2 text-sm text-zinc-700 dark:text-zinc-300">
+                            {aiInsights.insights.map(
+                              (i: string, idx: number) => (
+                                <li
+                                  key={idx}
+                                  className="flex items-start gap-2 pl-2"
+                                >
+                                  <span className="text-zinc-400 dark:text-zinc-600 mt-1">
+                                    •
+                                  </span>
+                                  <span>{i}</span>
+                                </li>
+                              )
+                            )}
+                          </ul>
                         </div>
-                        <div>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
-                            On Track
-                          </p>
-                          <p className="text-lg font-bold text-zinc-800 dark:text-zinc-100">
-                            {
-                              courses.filter((c: any) => c.progress >= 60)
-                                .length
-                            }
-                            /{courses.length}
-                          </p>
-                        </div>
-                      </div>
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                        Courses meeting your target progress goals
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-16 px-4">
+                      <motion.div
+                        animate={{ y: [0, -10, 0] }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
+                        className="mb-6"
+                      >
+                        <FaBrain className="text-6xl text-zinc-300 dark:text-zinc-700" />
+                      </motion.div>
+                      <h3 className="text-xl font-semibold text-zinc-800 dark:text-zinc-100 mb-2">
+                        AI Insights Not Loaded Yet
+                      </h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 text-center mb-6 max-w-md">
+                        Click the refresh button above or the button below to
+                        get personalized AI-powered insights about your learning
+                        journey
                       </p>
-                    </motion.div>
-                  </div>
-
-                  {/* Quick Actions */}
-                  <div className="mt-6 pt-6 border-t border-zinc-200 dark:border-zinc-700">
-                    <div className="flex flex-wrap gap-3">
                       <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all"
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={loadAIInsights}
+                        disabled={loadingAI}
+                        className="px-6 py-3 bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-200 rounded-lg text-base font-medium shadow-md hover:shadow-lg transition-all disabled:opacity-50"
                       >
-                        ✨ Generate Study Plan
-                      </motion.button>
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all"
-                      >
-                        📈 View Analytics
-                      </motion.button>
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all"
-                      >
-                        🏆 Set Milestone
+                        <span className="flex items-center gap-2">
+                          <FaBrain />
+                          Get AI Insights
+                        </span>
                       </motion.button>
                     </div>
-                  </div>
+                  )}
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ duration: 0.3 }}
+                    className="mt-6"
+                  >
+                    <Button
+                      onClick={fetchGoalAdjustments}
+                      className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white h-12 text-base font-semibold shadow-md"
+                    >
+                      <FaRocket className="mr-2" />
+                      Optimize My Goals with AI
+                    </Button>
+                  </motion.div>
                 </CardContent>
               </Card>
             </motion.div>
@@ -604,12 +863,12 @@ export default function Courses() {
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
                 transition={{ type: "spring", duration: 0.5 }}
-                className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-2xl w-full p-8 relative"
+                className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 relative"
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
                   onClick={() => setSelectedCourse(null)}
-                  className="absolute top-4 right-4 p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                  className="absolute top-4 right-4 p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors z-10 sticky"
                 >
                   <FaTimes className="text-xl text-zinc-600 dark:text-zinc-400" />
                 </button>
@@ -623,38 +882,260 @@ export default function Courses() {
                       {selectedCourse.name}
                     </h2>
                     <p className="text-zinc-600 dark:text-zinc-400">
-                      Track your progress and stay on top of your learning goals
+                      Comprehensive progress tracking and activity history
                     </p>
                   </div>
 
+                  {/* Weekly Progress Section */}
+                  <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
+                          <FaCalendarAlt className="text-blue-600 dark:text-blue-400" />
+                          This Week's Progress
+                        </h3>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                          Resets every 7 days
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                          {selectedCourse.weeklyProgress || 0}%
+                        </p>
+                        <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                          {selectedCourse.hoursThisWeek || 0}h /{" "}
+                          {selectedCourse.targetHours}h
+                        </p>
+                      </div>
+                    </div>
+                    <Progress
+                      value={selectedCourse.weeklyProgress || 0}
+                      className="h-3 bg-blue-100 dark:bg-blue-900/50"
+                    />
+                  </div>
+
+                  {/* Stats Grid */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-4">
                       <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 mb-2">
-                        <MdTimer className="text-xl" />
-                        <span className="text-sm">Weekly Target</span>
-                      </div>
-                      <p className="text-2xl font-bold text-zinc-800 dark:text-zinc-100">
-                        {selectedCourse.targetHours} hours
-                      </p>
-                    </div>
-
-                    <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-4">
-                      <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 mb-2">
-                        <FaChartLine className="text-xl" />
-                        <span className="text-sm">Progress</span>
+                        <FaChartLine className="text-lg" />
+                        <span className="text-sm font-medium">
+                          Overall Progress
+                        </span>
                       </div>
                       <p className="text-2xl font-bold text-zinc-800 dark:text-zinc-100">
                         {selectedCourse.progress}%
                       </p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                        Total completion
+                      </p>
+                    </div>
+
+                    <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 mb-2">
+                        <MdTimer className="text-lg" />
+                        <span className="text-sm font-medium">
+                          Weekly Target
+                        </span>
+                      </div>
+                      <p className="text-2xl font-bold text-zinc-800 dark:text-zinc-100">
+                        {selectedCourse.targetHours}h
+                      </p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                        Per week goal
+                      </p>
+                    </div>
+
+                    <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 mb-2">
+                        <FaFire className="text-lg text-orange-500" />
+                        <span className="text-sm font-medium">
+                          Total Activities
+                        </span>
+                      </div>
+                      <p className="text-2xl font-bold text-zinc-800 dark:text-zinc-100">
+                        {selectedCourse.activityLog?.length || 0}
+                      </p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                        Days tracked
+                      </p>
+                    </div>
+
+                    <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 mb-2">
+                        <FaTrophy className="text-lg text-yellow-500" />
+                        <span className="text-sm font-medium">Tasks Done</span>
+                      </div>
+                      <p className="text-2xl font-bold text-zinc-800 dark:text-zinc-100">
+                        {selectedCourse.activityLog?.reduce(
+                          (sum, log) => sum + (log.tasksCompleted || 0),
+                          0
+                        ) || 0}
+                      </p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                        All time
+                      </p>
                     </div>
                   </div>
 
+                  {/* Recent Activity */}
+                  {selectedCourse.activityLog &&
+                    selectedCourse.activityLog.length > 0 && (
+                      <div className="space-y-3">
+                        <h3 className="text-lg font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
+                          <FaCalendarAlt className="text-zinc-600 dark:text-zinc-400" />
+                          Recent Activity
+                        </h3>
+                        <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
+                          {selectedCourse.activityLog
+                            .slice()
+                            .reverse()
+                            .slice(0, 10)
+                            .map((log, index) => (
+                              <motion.div
+                                key={index}
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: index * 0.05 }}
+                                className="bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-3 border border-zinc-200 dark:border-zinc-700"
+                              >
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                    <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                                      {new Date(log.date).toLocaleDateString(
+                                        "en-US",
+                                        {
+                                          weekday: "short",
+                                          month: "short",
+                                          day: "numeric",
+                                        }
+                                      )}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-3 text-xs text-zinc-600 dark:text-zinc-400">
+                                    <span className="flex items-center gap-1">
+                                      <MdTimer /> {log.hoursSpent}h
+                                    </span>
+                                    {log.tasksCompleted > 0 && (
+                                      <span className="flex items-center gap-1">
+                                        <FaCheck /> {log.tasksCompleted} tasks
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                {log.note && (
+                                  <p className="text-xs text-zinc-600 dark:text-zinc-400 italic">
+                                    "{log.note}"
+                                  </p>
+                                )}
+                              </motion.div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                  {/* Log Activity Form */}
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-xl p-6 border border-green-200 dark:border-green-800">
+                    <h3 className="text-lg font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-2 mb-4">
+                      <FaPlus className="text-green-600 dark:text-green-400" />
+                      Log Today's Activity
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label
+                            htmlFor="hoursSpent"
+                            className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                          >
+                            Hours Spent
+                          </Label>
+                          <Input
+                            id="hoursSpent"
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            value={activityForm.hoursSpent}
+                            onChange={(e) =>
+                              setActivityForm({
+                                ...activityForm,
+                                hoursSpent: parseFloat(e.target.value) || 0,
+                              })
+                            }
+                            className="h-10"
+                            placeholder="e.g., 2.5"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label
+                            htmlFor="tasksCompleted"
+                            className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                          >
+                            Tasks Completed
+                          </Label>
+                          <Input
+                            id="tasksCompleted"
+                            type="number"
+                            min="0"
+                            value={activityForm.tasksCompleted}
+                            onChange={(e) =>
+                              setActivityForm({
+                                ...activityForm,
+                                tasksCompleted: parseInt(e.target.value) || 0,
+                              })
+                            }
+                            className="h-10"
+                            placeholder="e.g., 3"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="note"
+                          className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                        >
+                          Note (Optional)
+                        </Label>
+                        <Input
+                          id="note"
+                          value={activityForm.note}
+                          onChange={(e) =>
+                            setActivityForm({
+                              ...activityForm,
+                              note: e.target.value,
+                            })
+                          }
+                          className="h-10"
+                          placeholder="What did you work on today?"
+                        />
+                      </div>
+                      <Button
+                        onClick={handleLogActivity}
+                        disabled={loggingActivity}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white h-10"
+                      >
+                        {loggingActivity ? (
+                          <>
+                            <FaRedo className="mr-2 animate-spin" />
+                            Logging...
+                          </>
+                        ) : (
+                          <>
+                            <FaCheck className="mr-2" />
+                            Log Activity
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Overall Progress Bar */}
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-zinc-600 dark:text-zinc-400">
-                        Overall Progress
+                      <span className="text-zinc-600 dark:text-zinc-400 font-medium">
+                        Overall Course Progress
                       </span>
-                      <span className="font-semibold text-zinc-800 dark:text-zinc-100">
+                      <span className="text-zinc-800 dark:text-zinc-100 font-bold">
                         {selectedCourse.progress}%
                       </span>
                     </div>
@@ -680,6 +1161,185 @@ export default function Courses() {
                         ? "Generating..."
                         : "Generate Roadmap"}
                     </button>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Goal Adjustment Modal */}
+        <AnimatePresence>
+          {showGoalModal && goalSuggestions && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              onClick={() => setShowGoalModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                transition={{ type: "spring", duration: 0.5 }}
+                className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8 relative"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => setShowGoalModal(false)}
+                  className="absolute top-4 right-4 p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors z-10"
+                >
+                  <FaTimes className="text-xl text-zinc-600 dark:text-zinc-400" />
+                </button>
+
+                <div className="space-y-6">
+                  {/* Header */}
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-3 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg">
+                        <FaRocket className="text-white text-2xl" />
+                      </div>
+                      <h2 className="text-3xl font-bold text-zinc-800 dark:text-zinc-100">
+                        AI Goal Recommendations
+                      </h2>
+                    </div>
+                    <p className="text-zinc-600 dark:text-zinc-400 mt-2">
+                      {goalSuggestions.overallAdvice}
+                    </p>
+                  </div>
+
+                  {/* Course Adjustments */}
+                  {goalSuggestions.courseAdjustments &&
+                    goalSuggestions.courseAdjustments.length > 0 && (
+                      <div className="space-y-4">
+                        <h3 className="text-xl font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
+                          <FaBook className="text-indigo-600 dark:text-indigo-400" />
+                          Course Target Adjustments
+                        </h3>
+                        <div className="space-y-3">
+                          {goalSuggestions.courseAdjustments.map(
+                            (adjustment: any, index: number) => (
+                              <motion.div
+                                key={adjustment.courseId}
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: index * 0.1 }}
+                                className="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-5 border border-zinc-200 dark:border-zinc-700"
+                              >
+                                <div className="flex items-start justify-between gap-4 mb-3">
+                                  <div className="flex-1">
+                                    <h4 className="font-semibold text-lg text-zinc-800 dark:text-zinc-100 mb-1">
+                                      {adjustment.courseName}
+                                    </h4>
+                                    <div className="flex items-center gap-3 text-sm">
+                                      <span className="text-zinc-500 dark:text-zinc-400 line-through">
+                                        {adjustment.oldTargetHours} hrs/week
+                                      </span>
+                                      <FaArrowRight className="text-indigo-600 dark:text-indigo-400" />
+                                      <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                                        {adjustment.newTargetHours} hrs/week
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => applyCourseGoal(adjustment)}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                                  >
+                                    <FaCheck className="mr-1" />
+                                    Apply
+                                  </Button>
+                                </div>
+                                <p className="text-sm text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 rounded-lg p-3">
+                                  <FaLightbulb className="inline mr-2 text-amber-500" />
+                                  {adjustment.reason}
+                                </p>
+                              </motion.div>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                  {/* Habit Adjustments */}
+                  {goalSuggestions.habitAdjustments &&
+                    (goalSuggestions.habitAdjustments.sleepTarget ||
+                      goalSuggestions.habitAdjustments.studyTarget) && (
+                      <div className="space-y-4">
+                        <h3 className="text-xl font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
+                          <FaBrain className="text-purple-600 dark:text-purple-400" />
+                          Habit Target Adjustments
+                        </h3>
+                        <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-5 border border-zinc-200 dark:border-zinc-700">
+                          <div className="space-y-3">
+                            {goalSuggestions.habitAdjustments.sleepTarget && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-zinc-700 dark:text-zinc-300">
+                                  Sleep Target
+                                </span>
+                                <span className="font-bold text-purple-600 dark:text-purple-400">
+                                  {goalSuggestions.habitAdjustments.sleepTarget}{" "}
+                                  hours
+                                </span>
+                              </div>
+                            )}
+                            {goalSuggestions.habitAdjustments.studyTarget && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-zinc-700 dark:text-zinc-300">
+                                  Daily Study Target
+                                </span>
+                                <span className="font-bold text-purple-600 dark:text-purple-400">
+                                  {goalSuggestions.habitAdjustments.studyTarget}{" "}
+                                  hours
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-3 pt-3 border-t border-zinc-200 dark:border-zinc-700">
+                            <FaLightbulb className="inline mr-2 text-amber-500" />
+                            {goalSuggestions.habitAdjustments.reason}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                  {/* No Adjustments Message */}
+                  {(!goalSuggestions.courseAdjustments ||
+                    goalSuggestions.courseAdjustments.length === 0) &&
+                    !goalSuggestions.habitAdjustments?.sleepTarget &&
+                    !goalSuggestions.habitAdjustments?.studyTarget && (
+                      <div className="text-center py-8">
+                        <FaCheck className="text-6xl text-green-500 mx-auto mb-4" />
+                        <h3 className="text-2xl font-bold text-zinc-800 dark:text-zinc-100 mb-2">
+                          You're on track!
+                        </h3>
+                        <p className="text-zinc-600 dark:text-zinc-400">
+                          Your current goals are well-balanced. Keep up the
+                          great work!
+                        </p>
+                      </div>
+                    )}
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                    {goalSuggestions.courseAdjustments &&
+                      goalSuggestions.courseAdjustments.length > 0 && (
+                        <Button
+                          onClick={applyAllCourseGoals}
+                          className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white h-12"
+                        >
+                          <FaCheck className="mr-2" />
+                          Apply All Adjustments
+                        </Button>
+                      )}
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowGoalModal(false)}
+                      className="flex-1 h-12"
+                    >
+                      Close
+                    </Button>
                   </div>
                 </div>
               </motion.div>

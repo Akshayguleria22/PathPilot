@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Protected from "@/components/Protected";
-import SearchPanel from "@/components/SearchPanel";
 import {
   getTodayHabit,
   fetchWeeklySummary,
@@ -11,6 +10,7 @@ import {
   getDailyReminder,
   getStreak,
   getBurnoutRisk,
+  getHabitTargets,
 } from "@/lib/api";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +46,17 @@ export default function Dashboard() {
   const [reminderMessage, setReminderMessage] = useState<string>("");
   const [streak, setStreak] = useState<number>(0);
   const [burnout, setBurnout] = useState<any>(null);
+  const [showReminder, setShowReminder] = useState(true);
+  const [showBurnout, setShowBurnout] = useState(true);
+  const [showHabitAlert, setShowHabitAlert] = useState(true);
+  const [habitTargets, setHabitTargets] = useState<any>({
+    sleep: 8,
+    study: 6,
+    exercise: 1,
+    foodQuality: 7,
+    mood: 7,
+    stress: 5,
+  });
 
   const load = async () => {
     try {
@@ -74,6 +85,10 @@ export default function Dashboard() {
       // Fetch burnout risk
       const burnoutData = await getBurnoutRisk();
       setBurnout(burnoutData);
+
+      // Fetch habit targets
+      const targets = await getHabitTargets();
+      setHabitTargets(targets);
     } catch (error) {
       console.error("Error loading dashboard:", error);
     } finally {
@@ -83,13 +98,34 @@ export default function Dashboard() {
 
   useEffect(() => {
     load();
+
+    // Auto-dismiss alerts after 10 seconds
+    const reminderTimer = setTimeout(() => setShowReminder(false), 10000);
+    const burnoutTimer = setTimeout(() => setShowBurnout(false), 15000);
+    const habitTimer = setTimeout(() => setShowHabitAlert(false), 12000);
+
+    // Listen for target updates from other pages
+    const handleTargetUpdate = () => {
+      console.log("Target updated, reloading dashboard data...");
+      load();
+    };
+    window.addEventListener("targetUpdated", handleTargetUpdate);
+
+    return () => {
+      clearTimeout(reminderTimer);
+      clearTimeout(burnoutTimer);
+      clearTimeout(habitTimer);
+      window.removeEventListener("targetUpdated", handleTargetUpdate);
+    };
   }, []);
 
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: { staggerChildren: 0.15, delayChildren: 0.2 },
+      transition: {
+        staggerChildren: 0.1,
+      },
     },
   };
 
@@ -104,45 +140,35 @@ export default function Dashboard() {
 
   return (
     <Protected>
-      <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-6 md:p-10 transition-colors duration-300">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="max-w-7xl mx-auto space-y-8"
-        >
-          {/* Header */}
-          <div className="space-y-2">
-            <h1 className="text-4xl md:text-5xl font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-3">
-              <FaRocket className="text-zinc-600 dark:text-zinc-400" />
-              Your Dashboard
-            </h1>
-            <p className="text-lg text-zinc-600 dark:text-zinc-400">
-              Track your progress and stay on top of your goals
-            </p>
-          </div>
-
-          {/* Reminder Banner */}
-          {reminderMessage && (
+      <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-4 sm:p-6 md:p-10 transition-colors duration-300">
+        {/* Fixed Corner Alerts */}
+        <div className="fixed top-20 right-4 z-40 space-y-3 max-w-sm">
+          {/* Reminder */}
+          {reminderMessage && showReminder && (
             <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, x: 100 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 100 }}
               transition={{ duration: 0.5 }}
             >
-              <Card className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:from-blue-500/20 dark:via-purple-500/20 dark:to-pink-500/20 border-2 border-blue-500/30 dark:border-blue-400/30 shadow-lg">
-                <CardContent className="p-5">
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-md">
-                      <FaBell className="text-white text-xl" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-zinc-800 dark:text-zinc-100 mb-1">
+              <Card className="bg-white dark:bg-zinc-900 border-l-4 border-blue-500 shadow-lg">
+                <CardContent className="p-3">
+                  <div className="flex items-start gap-2">
+                    <FaBell className="text-blue-500 text-sm mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-100 mb-0.5">
                         Daily Reminder
-                      </h3>
-                      <p className="text-zinc-700 dark:text-zinc-300">
+                      </p>
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-tight">
                         {reminderMessage}
                       </p>
                     </div>
+                    <button
+                      onClick={() => setShowReminder(false)}
+                      className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
+                    >
+                      ×
+                    </button>
                   </div>
                 </CardContent>
               </Card>
@@ -150,58 +176,109 @@ export default function Dashboard() {
           )}
 
           {/* Burnout Alert */}
-          {burnout && burnout.level !== "low" && (
+          {burnout && burnout.level !== "low" && showBurnout && (
             <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
+              initial={{ opacity: 0, x: 100 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 100 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
             >
               <Card
-                className={`border-2 shadow-lg ${
+                className={`border-l-4 shadow-lg ${
                   burnout.level === "high"
-                    ? "bg-gradient-to-r from-red-500/10 via-orange-500/10 to-yellow-500/10 dark:from-red-500/20 dark:via-orange-500/20 dark:to-yellow-500/20 border-red-500/30 dark:border-red-400/30"
-                    : "bg-gradient-to-r from-yellow-500/10 via-orange-500/10 to-amber-500/10 dark:from-yellow-500/20 dark:via-orange-500/20 dark:to-amber-500/20 border-yellow-500/30 dark:border-yellow-400/30"
+                    ? "bg-white dark:bg-zinc-900 border-red-500"
+                    : "bg-white dark:bg-zinc-900 border-yellow-500"
                 }`}
               >
-                <CardContent className="p-5">
-                  <div className="flex items-start gap-4">
-                    <div
-                      className={`p-3 rounded-xl shadow-md ${
+                <CardContent className="p-3">
+                  <div className="flex items-start gap-2">
+                    <FaBell
+                      className={`text-sm mt-0.5 flex-shrink-0 ${
                         burnout.level === "high"
-                          ? "bg-gradient-to-br from-red-500 to-orange-600"
-                          : "bg-gradient-to-br from-yellow-500 to-orange-600"
+                          ? "text-red-500"
+                          : "text-yellow-500"
                       }`}
-                    >
-                      <FaBell className="text-white text-xl" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-zinc-800 dark:text-zinc-100 mb-1">
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-100 mb-0.5">
                         {burnout.level === "high"
                           ? "⚠️ High Burnout Risk"
                           : "⚡ Burnout Warning"}
-                      </h3>
-                      <p className="text-zinc-700 dark:text-zinc-300">
+                      </p>
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-tight">
                         {burnout.message}
                       </p>
                     </div>
+                    <button
+                      onClick={() => setShowBurnout(false)}
+                      className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
+                    >
+                      ×
+                    </button>
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
           )}
 
-          {/* Search Panel */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-          >
-            <SearchPanel />
-          </motion.div>
+          {/* No Habit Log Alert - Only show if today's habit is not logged */}
+          {!today && showHabitAlert && (
+            <motion.div
+              initial={{ opacity: 0, x: 100 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 100 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              <Card className="bg-white dark:bg-zinc-900 border-l-4 border-purple-500 shadow-lg">
+                <CardContent className="p-3">
+                  <div className="flex items-start gap-2">
+                    <FaCalendar className="text-purple-500 text-sm mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-100 mb-0.5">
+                        Log Today's Habits
+                      </p>
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-tight mb-2">
+                        Track your daily progress
+                      </p>
+                      <Link href="/habits">
+                        <button className="text-xs bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded-md transition-colors">
+                          Log Now →
+                        </button>
+                      </Link>
+                    </div>
+                    <button
+                      onClick={() => setShowHabitAlert(false)}
+                      className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          className="max-w-7xl mx-auto space-y-6 sm:space-y-8"
+        >
+          {/* Header */}
+          <div className="space-y-2">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-2 sm:gap-3">
+              <FaRocket className="text-zinc-600 dark:text-zinc-400 text-2xl sm:text-3xl md:text-4xl" />
+              Your Dashboard
+            </h1>
+            <p className="text-base sm:text-lg text-zinc-600 dark:text-zinc-400">
+              Track your progress and stay on top of your goals
+            </p>
+          </div>
 
           {/* Quick Stats */}
           {loading ? (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               {[...Array(4)].map((_, i) => (
                 <SkeletonStat key={i} />
               ))}
@@ -211,7 +288,7 @@ export default function Dashboard() {
               variants={containerVariants}
               initial="hidden"
               animate="visible"
-              className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4"
+              className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
             >
               <StatCard
                 icon={<FaBook />}
@@ -247,7 +324,7 @@ export default function Dashboard() {
           )}
 
           {loading ? (
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
               {[...Array(2)].map((_, i) => (
                 <SkeletonCard key={i} />
               ))}
@@ -275,22 +352,24 @@ export default function Dashboard() {
                           icon={<FaBed className="text-blue-500" />}
                           label="Sleep"
                           value={`${today.sleep}h`}
-                          target="8h"
-                          progress={(today.sleep / 8) * 100}
+                          target={`${habitTargets.sleep}h`}
+                          progress={(today.sleep / habitTargets.sleep) * 100}
                         />
                         <MetricRow
                           icon={<FaBrain className="text-purple-500" />}
                           label="Study"
                           value={`${today.study}h`}
-                          target="6h"
-                          progress={(today.study / 6) * 100}
+                          target={`${habitTargets.study}h`}
+                          progress={(today.study / habitTargets.study) * 100}
                         />
                         <MetricRow
                           icon={<FaDumbbell className="text-orange-500" />}
                           label="Exercise"
                           value={`${today.exercise}h`}
-                          target="1h"
-                          progress={(today.exercise / 1) * 100}
+                          target={`${habitTargets.exercise}h`}
+                          progress={
+                            (today.exercise / habitTargets.exercise) * 100
+                          }
                         />
                         <MetricRow
                           icon={<FaUtensils className="text-yellow-500" />}
@@ -436,22 +515,19 @@ export default function Dashboard() {
 function StatCard({ icon, title, value, subtitle, color, variants }: any) {
   return (
     <motion.div variants={variants}>
-      <Card className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:scale-105 transition-all duration-300 shadow-md hover:shadow-lg overflow-hidden relative">
-        <div
-          className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${color} opacity-10 rounded-full blur-2xl`}
-        ></div>
-        <CardContent className="p-6 relative z-10">
+      <Card className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:shadow-lg transition-all duration-300 shadow-md overflow-hidden">
+        <CardContent className="p-4 sm:p-6">
           <div className="flex items-start justify-between mb-2">
-            <div
-              className={`text-3xl bg-gradient-to-br ${color} bg-clip-text text-transparent`}
-            >
-              {icon}
+            <div className="p-2 bg-zinc-800 dark:bg-zinc-100 rounded-lg">
+              <div className="text-xl text-white dark:text-zinc-900">
+                {icon}
+              </div>
             </div>
           </div>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">
+          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 mb-1">
             {title}
           </p>
-          <p className="text-3xl font-bold text-zinc-800 dark:text-zinc-100">
+          <p className="text-2xl sm:text-3xl font-bold text-zinc-800 dark:text-zinc-100">
             {value}
           </p>
           {subtitle && <p className="text-xs text-zinc-500 mt-1">{subtitle}</p>}
@@ -483,14 +559,14 @@ function MetricRow({ icon, label, value, target, progress }: any) {
 
 function WeeklyStat({ icon, label, value, trend }: any) {
   return (
-    <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-3">
-      <div className="flex items-center gap-2 mb-1">
-        <span className="text-xl">{icon}</span>
+    <div className="bg-zinc-100 dark:bg-zinc-800 rounded-lg p-3 border border-zinc-200 dark:border-zinc-700">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xl text-zinc-600 dark:text-zinc-400">{icon}</span>
         {trend !== undefined &&
           (trend ? (
-            <MdTrendingUp className="text-green-500" />
+            <MdTrendingUp className="text-green-600 dark:text-green-400" />
           ) : (
-            <MdTrendingDown className="text-red-500" />
+            <MdTrendingDown className="text-red-600 dark:text-red-400" />
           ))}
       </div>
       <p className="text-xs text-zinc-600 dark:text-zinc-400">{label}</p>
@@ -505,22 +581,21 @@ function QuickLinkCard({ href, icon, title, description, gradient }: any) {
   return (
     <Link href={href}>
       <motion.div whileHover={{ scale: 1.02, y: -5 }} className="h-full">
-        <Card className="h-full bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-md hover:shadow-xl transition-all duration-500 cursor-pointer overflow-hidden relative group">
-          <div
-            className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${gradient} opacity-10 group-hover:opacity-20 rounded-full blur-2xl transition-opacity`}
-          ></div>
-          <CardContent className="p-6 relative z-10">
-            <div
-              className={`text-4xl mb-3 bg-gradient-to-br ${gradient} bg-clip-text text-transparent inline-block`}
-            >
-              {icon}
+        <Card className="h-full bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-md hover:shadow-xl transition-all duration-500 cursor-pointer overflow-hidden group">
+          <CardContent className="p-4 sm:p-6">
+            <div className="p-3 bg-zinc-800 dark:bg-zinc-100 rounded-lg inline-block mb-3">
+              <div className="text-2xl sm:text-3xl text-white dark:text-zinc-900">
+                {icon}
+              </div>
             </div>
-            <h3 className="text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-2">
+            <h3 className="text-lg sm:text-xl font-bold text-zinc-800 dark:text-zinc-100 mb-2">
               {title}
             </h3>
-            <p className="text-zinc-600 dark:text-zinc-400">{description}</p>
+            <p className="text-sm sm:text-base text-zinc-600 dark:text-zinc-400">
+              {description}
+            </p>
             <motion.div
-              className="mt-4 text-zinc-800 dark:text-zinc-100 font-semibold"
+              className="mt-3 sm:mt-4 text-sm sm:text-base text-zinc-800 dark:text-zinc-100 font-semibold"
               whileHover={{ x: 5 }}
             >
               View →

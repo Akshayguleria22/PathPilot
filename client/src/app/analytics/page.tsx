@@ -1,7 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import Protected from "@/components/Protected";
-import { fetchWeeklySummary, getAIAdvice, getRecentHabits } from "@/lib/api";
+import {
+  fetchWeeklySummary,
+  getAnalyticsInsights,
+  getRecentHabits,
+} from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
@@ -15,6 +19,9 @@ import {
   FaDumbbell,
   FaUtensils,
   FaSmile,
+  FaExclamationTriangle,
+  FaRocket,
+  FaRedo,
 } from "react-icons/fa";
 import { MdTrendingUp, MdTrendingDown } from "react-icons/md";
 import { Progress } from "@/components/ui/progress";
@@ -34,8 +41,36 @@ import {
 export default function Analytics() {
   const [summary, setSummary] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
-  const [advice, setAdvice] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [aiAnalytics, setAiAnalytics] = useState<any>(null);
+  const [loadingAI, setLoadingAI] = useState(false);
+
+  const loadAIAnalytics = async () => {
+    setLoadingAI(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/ai/analytics/behavior-insights`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({
+            weeklySummary: summary,
+            habits: logs,
+          }),
+        }
+      );
+
+      const data = await res.json();
+      setAiAnalytics(data);
+      localStorage.setItem("behavioral_insights", JSON.stringify(data));
+    } catch (error) {
+      console.error("Failed to load AI analytics:", error);
+    } finally {
+      setLoadingAI(false);
+    }
+  };
 
   const load = async () => {
     const data = await fetchWeeklySummary();
@@ -52,27 +87,35 @@ export default function Analytics() {
     }
   };
 
-  const weeklyStudy = logs.reduce(
-    (total, log) => total + (log.study || 0),
-    0
-  );
+  const weeklyStudy = logs.reduce((total, log) => total + (log.study || 0), 0);
 
   const avgSleep =
     logs.length > 0
-      ? logs.reduce((total, log) => total + (log.sleep || 0), 0) /
-        logs.length
+      ? logs.reduce((total, log) => total + (log.sleep || 0), 0) / logs.length
       : 0;
-
-  const analyze = async () => {
-    if (!summary) return;
-    setLoading(true);
-    const data = await getAIAdvice(summary);
-    setAdvice(data.advice);
-    setLoading(false);
-  };
 
   useEffect(() => {
     load();
+    // Load cached behavioral insights
+    const cached = localStorage.getItem("behavioral_insights");
+    if (cached) {
+      try {
+        setAiAnalytics(JSON.parse(cached));
+      } catch (error) {
+        console.error("Failed to parse cached insights:", error);
+      }
+    }
+
+    // Listen for target updates from other pages
+    const handleTargetUpdate = () => {
+      console.log("Target updated, reloading analytics data...");
+      load();
+    };
+    window.addEventListener("targetUpdated", handleTargetUpdate);
+
+    return () => {
+      window.removeEventListener("targetUpdated", handleTargetUpdate);
+    };
   }, []);
 
   // Prepare chart data from logs - automatically filtered to current week by backend
@@ -284,6 +327,155 @@ export default function Analytics() {
                   </Card>
                 </motion.div>
               </div>
+
+              <Card className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/5 dark:to-teal-500/5 border-emerald-400/30 dark:border-emerald-600/30 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-zinc-800 dark:text-zinc-100">
+                    <FaChartLine className="text-emerald-600 dark:text-emerald-400" />
+                    AI Behavioral Insights
+                  </CardTitle>
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  {!aiAnalytics && (
+                    <motion.div
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <Button
+                        onClick={loadAIAnalytics}
+                        disabled={loadingAI}
+                        className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white h-12 px-8 text-lg shadow-md transition-all duration-300"
+                      >
+                        {loadingAI ? (
+                          <>
+                            <motion.div
+                              animate={{ rotate: 360 }}
+                              transition={{
+                                duration: 1,
+                                repeat: Infinity,
+                                ease: "linear",
+                              }}
+                              className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2"
+                            />
+                            Analyzing your habits...
+                          </>
+                        ) : (
+                          <>
+                            <FaBrain className="mr-2" />
+                            Analyze Behavior
+                          </>
+                        )}
+                      </Button>
+                    </motion.div>
+                  )}
+
+                  {aiAnalytics && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.6 }}
+                      className="space-y-6"
+                    >
+                      {/* Burnout Risk */}
+                      <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 border border-zinc-200 dark:border-zinc-700">
+                        <p className="text-lg font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
+                          <FaExclamationTriangle
+                            className={`${
+                              aiAnalytics.burnout_risk === "high"
+                                ? "text-red-600 dark:text-red-400"
+                                : aiAnalytics.burnout_risk === "medium"
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-green-600 dark:text-green-400"
+                            }`}
+                          />
+                          Burnout Risk:
+                          <span
+                            className={`${
+                              aiAnalytics.burnout_risk === "high"
+                                ? "text-red-600 dark:text-red-400"
+                                : aiAnalytics.burnout_risk === "medium"
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-green-600 dark:text-green-400"
+                            }`}
+                          >
+                            {aiAnalytics.burnout_risk.toUpperCase()}
+                          </span>
+                        </p>
+                      </div>
+
+                      {/* Positive Trends */}
+                      <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 border border-zinc-200 dark:border-zinc-700">
+                        <h4 className="text-lg font-semibold text-zinc-800 dark:text-zinc-100 mb-3 flex items-center gap-2">
+                          <MdTrendingUp className="text-green-600 dark:text-green-400" />
+                          Positive Trends
+                        </h4>
+                        <ul className="space-y-2">
+                          {aiAnalytics.positive_trends.map(
+                            (t: string, i: number) => (
+                              <li
+                                key={i}
+                                className="flex items-start gap-2 text-zinc-700 dark:text-zinc-300"
+                              >
+                                <span className="text-green-600 dark:text-green-400">
+                                  •
+                                </span>
+                                {t}
+                              </li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+
+                      {/* Risk Factors */}
+                      <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 border border-zinc-200 dark:border-zinc-700">
+                        <h4 className="text-lg font-semibold text-zinc-800 dark:text-zinc-100 mb-3 flex items-center gap-2">
+                          <MdTrendingDown className="text-red-600 dark:text-red-400" />
+                          Risk Factors
+                        </h4>
+                        <ul className="space-y-2">
+                          {aiAnalytics.risk_factors.map(
+                            (r: string, i: number) => (
+                              <li
+                                key={i}
+                                className="flex items-start gap-2 text-zinc-700 dark:text-zinc-300"
+                              >
+                                <span className="text-red-600 dark:text-red-400">
+                                  •
+                                </span>
+                                {r}
+                              </li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+
+                      {/* Next Week Focus */}
+                      <div className="bg-gradient-to-r from-emerald-500 to-teal-500 dark:from-emerald-600 dark:to-teal-600 rounded-lg p-6 text-white shadow-md">
+                        <p className="text-lg font-semibold flex items-center gap-2">
+                          <FaRocket />
+                          Next Week Focus:
+                        </p>
+                        <p className="mt-2 text-white/90">
+                          {aiAnalytics.next_week_focus}
+                        </p>
+                      </div>
+
+                      {/* Refresh Button */}
+                      <Button
+                        onClick={loadAIAnalytics}
+                        disabled={loadingAI}
+                        variant="outline"
+                        className="w-full border-emerald-400 dark:border-emerald-600 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+                      >
+                        <FaRedo className="mr-2" />
+                        Refresh Insights
+                      </Button>
+                    </motion.div>
+                  )}
+                </CardContent>
+              </Card>
 
               {/* Debug info */}
               <div className="text-xs text-zinc-500 dark:text-zinc-400 p-2 bg-zinc-100 dark:bg-zinc-800 rounded">
@@ -723,84 +915,7 @@ export default function Analytics() {
                 ))}
               </div>
 
-              {/* AI Feedback Section */}
-              <Card className="bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-2xl flex items-center gap-3 text-zinc-800 dark:text-zinc-100">
-                    <FaRobot className="text-3xl text-zinc-600 dark:text-zinc-400" />
-                    AI-Powered Insights
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-zinc-700 dark:text-zinc-300">
-                    Get personalized recommendations based on your weekly habits
-                  </p>
-
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <Button
-                      onClick={analyze}
-                      disabled={loading}
-                      className="bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-200 h-12 px-8 text-lg shadow-md transition-all duration-300"
-                    >
-                      {loading ? (
-                        <>
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{
-                              duration: 1,
-                              repeat: Infinity,
-                              ease: "linear",
-                            }}
-                            className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2"
-                          />
-                          Analyzing...
-                        </>
-                      ) : (
-                        <>
-                          <FaBrain className="mr-2" />
-                          Generate AI Feedback
-                        </>
-                      )}
-                    </Button>
-                  </motion.div>
-
-                  {advice.length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      transition={{ duration: 0.6 }}
-                      className="bg-white dark:bg-zinc-900 rounded-lg p-6 shadow-md space-y-3 border border-zinc-200 dark:border-zinc-700"
-                    >
-                      <h3 className="text-xl font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
-                        <FaRobot className="text-zinc-600 dark:text-zinc-400" />
-                        Your Personalized Recommendations
-                      </h3>
-                      <div className="space-y-2">
-                        {advice.map((line, index) => (
-                          <motion.div
-                            key={index}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: index * 0.15, duration: 0.6 }}
-                            className="flex items-start gap-3 p-3 bg-zinc-100 dark:bg-zinc-800 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all duration-300"
-                          >
-                            <span className="text-zinc-600 dark:text-zinc-400 font-bold text-lg">
-                              •
-                            </span>
-                            <p className="text-zinc-800 dark:text-zinc-200">
-                              {line}
-                            </p>
-                          </motion.div>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </CardContent>
-              </Card>
+              {/* AI Behavioral Insights */}
             </>
           )}
         </div>

@@ -13,7 +13,9 @@ import eventRoutes from "./routes/eventRoutes.js";
 import resourceRoutes from "./routes/resourceRoutes.js";
 import streakRoutes from "./routes/streakRoutes.js";
 import searchRoutes from "./routes/searchRoutes.js";
-
+import aiRoutes from "./routes/airoutes.js";
+import aiAnalyticsRoutes from "./routes/aiAnalyticsRoutes.js";
+import goalAIRoutes from "./routes/goalAiRoutes.js";
 dotenv.config();
 connectDB();
 
@@ -27,6 +29,7 @@ app.get("/", (req, res) => {
 
 
 app.use("/api/users", userRoutes);
+app.use("/api/ai/goals", goalAIRoutes);
 app.use("/api/courses", courseRoutes);
 app.use("/api/habits", habitRoutes);
 app.use("/api/analytics", analyticsRoutes);
@@ -37,6 +40,8 @@ app.use("/api/events", eventRoutes);
 app.use("/api/resources", resourceRoutes);
 app.use("/api/streak", streakRoutes);
 app.use("/api/search", searchRoutes);
+app.use("/api/ai", aiRoutes);
+app.use("/api/ai/analytics", aiAnalyticsRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {

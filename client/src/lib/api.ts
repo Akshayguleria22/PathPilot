@@ -19,6 +19,14 @@ export const loginUser = async (data: any) => {
     return res.json();
 };
 
+export const getHabitTargets = async () => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API_URL}/api/users/habit-targets`, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+};
+
 export const getDailyReminder = async () => {
     const token = localStorage.getItem("token");
     const res = await fetch(
@@ -110,6 +118,19 @@ export const getCourses = async () => {
     return res.json();
 };
 
+export const logCourseActivity = async (courseId: string, data: any) => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API_URL}/api/courses/${courseId}/log-activity`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
 export const logHabit = async (data: any) => {
     const token = localStorage.getItem("token");
     const res = await fetch(`${API_URL}/api/habits/log`, {
@@ -149,6 +170,24 @@ export const getAIAdvice = async (data: any) => {
     return res.json();
 };
 
+export const getAnalyticsInsights = async (summary: any, logs: any[]) => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API_URL}/api/ai/analytics-insights`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ summary, logs }),
+    });
+
+    if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+    }
+
+    return res.json();
+};
+
 export const getTodayHabit = async () => {
     const token = localStorage.getItem("token");
     const res = await fetch(`${API_URL}/api/habits/recent`, {
@@ -156,6 +195,8 @@ export const getTodayHabit = async () => {
     });
     return res.json();
 };
+
+
 
 export const getCoursesList = async () => {
     return getCourses(); // reuse course fetch helper

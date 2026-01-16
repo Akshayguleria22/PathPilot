@@ -1,5 +1,7 @@
 import express from "express";
 import Habit from "../models/Habit.js";
+import Course from "../models/Course.js";
+import User from "../models/User.js";
 import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
@@ -30,6 +32,29 @@ router.get("/recent", protect, async (req, res) => {
         date: { $gte: sevenDaysAgo, $lte: today }
     }).sort({ date: -1 });
     res.json(habits);
+});
+
+// Apply AI goal adjustments
+router.patch("/apply-goal", protect, async (req, res) => {
+    try {
+        const { type, payload } = req.body;
+
+        if (type === "course") {
+            await Course.findByIdAndUpdate(payload.courseId, {
+                targetHours: payload.newTargetHours,
+            });
+        }
+
+        if (type === "habit") {
+            await User.findByIdAndUpdate(req.user._id, {
+                habitTargets: payload,
+            });
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ message: "Failed to apply goal adjustment", error: error.message });
+    }
 });
 
 export default router;

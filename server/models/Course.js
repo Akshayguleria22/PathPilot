@@ -14,7 +14,18 @@ const courseSchema = new mongoose.Schema(
             default: "Academic",
         },
         targetHours: { type: Number, default: 5 }, // weekly target
-        progress: { type: Number, default: 0 }, // percentage
+        progress: { type: Number, default: 0 }, // overall percentage
+        weeklyProgress: { type: Number, default: 0 }, // current week percentage
+        hoursThisWeek: { type: Number, default: 0 }, // hours completed this week
+        lastWeekReset: { type: Date, default: Date.now }, // track when weekly progress was last reset
+        activityLog: [
+            {
+                date: { type: String, required: true }, // YYYY-MM-DD
+                hoursSpent: { type: Number, default: 0 },
+                tasksCompleted: { type: Number, default: 0 },
+                note: { type: String },
+            },
+        ],
     },
     { timestamps: true }
 );

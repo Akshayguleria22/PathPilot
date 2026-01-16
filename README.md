@@ -38,13 +38,13 @@ PathPilot is an intelligent academic companion that combines **AI-powered course
 
 ### 🎨 Stunning User Interface
 <div align="center">
-  <img src="https://via.placeholder.com/800x450/18181b/ffffff?text=PathPilot+Dashboard" alt="Dashboard Preview" width="800"/>
+  <img src="./client/public/Screenshot 2026-01-14 223035.png" alt="Dashboard Preview" width="800"/>
   <p><em>Modern dashboard with real-time analytics and AI insights</em></p>
 </div>
 
 ### 🗺️ AI-Generated Course Roadmaps
 <div align="center">
-  <img src="https://via.placeholder.com/800x450/18181b/ffffff?text=Interactive+Roadmap+Flow" alt="Roadmap Flow" width="800"/>
+  <img src="./client/public/Screenshot 2026-01-14 223138.png" alt="Roadmap Flow" width="800"/>
   <p><em>Interactive visual roadmap with resource recommendations</em></p>
 </div>
 
