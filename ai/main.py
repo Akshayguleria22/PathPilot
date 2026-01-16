@@ -23,10 +23,36 @@ app.add_middleware(
 )
 
 # ML model (resource ranking)
-ranker = joblib.load("models/resource_ranker.pkl")
+try:
+    ranker = joblib.load("models/resource_ranker.pkl")
+    print("✅ ML model loaded successfully")
+except Exception as e:
+    print(f"⚠️  Warning: Could not load ML model - {e}")
+    ranker = None
 
 # Groq LLM client
-groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+groq_api_key = os.getenv("GROQ_API_KEY")
+if not groq_api_key:
+    print("⚠️  Warning: GROQ_API_KEY not set - AI features will be limited")
+    groq_client = None
+else:
+    try:
+        groq_client = Groq(api_key=groq_api_key)
+        print("✅ GROQ client initialized successfully")
+    except Exception as e:
+        print(f"⚠️  Warning: Could not initialize GROQ client - {e}")
+        groq_client = None
+
+# ---------------- HEALTH CHECK ---------------- #
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "groq_available": groq_client is not None,
+        "ml_model_available": ranker is not None
+    }
+
 
 # ---------------- SCHEMAS ---------------- #
 
@@ -124,6 +150,9 @@ Return ONLY valid JSON:
 No explanations. No markdown.
 """
 
+    if not groq_client:
+        raise HTTPException(status_code=503, detail="AI service unavailable: GROQ_API_KEY not configured")
+
     completion = groq_client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=[{"role": "user", "content": prompt}],
@@ -206,6 +235,9 @@ class ResourceQueryReq(BaseModel):
 
 @app.post("/generate-resource-queries")
 def generate_resource_queries(req: ResourceQueryReq):
+    if not groq_client:
+        raise HTTPException(status_code=503, detail="AI service unavailable: GROQ_API_KEY not configured")
+    
     prompt = f"""
 Generate 5 high-quality YouTube search queries
 for the topic: {req.topic}
