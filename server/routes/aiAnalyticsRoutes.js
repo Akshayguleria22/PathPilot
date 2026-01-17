@@ -33,12 +33,28 @@ Return STRICT JSON:
         ```;
 
         const response = await getLLMResponse(prompt);
-        const parsedResponse = JSON.parse(response);
+        console.log("AI Raw Response:", response);
 
-        // Validate response structure
-        if (!parsedResponse.burnout_risk || !parsedResponse.positive_trends || !parsedResponse.risk_factors) {
+        // Clean the response - remove markdown code blocks if present
+        let cleanedResponse = response.trim();
+        if (cleanedResponse.startsWith("```")) {
+            cleanedResponse = cleanedResponse.replace(/```json\n?/g, "").replace(/```\n?/g, "");
+        }
+
+        const parsedResponse = JSON.parse(cleanedResponse);
+
+        // Validate response structure and ensure arrays
+        if (!parsedResponse.burnout_risk) {
             console.error("Invalid AI response structure:", parsedResponse);
-            throw new Error("Invalid AI response format");
+            throw new Error("Invalid AI response format - missing burnout_risk");
+        }
+
+        // Ensure positive_trends and risk_factors are arrays
+        if (!Array.isArray(parsedResponse.positive_trends)) {
+            parsedResponse.positive_trends = [];
+        }
+        if (!Array.isArray(parsedResponse.risk_factors)) {
+            parsedResponse.risk_factors = [];
         }
 
         res.json(parsedResponse);
