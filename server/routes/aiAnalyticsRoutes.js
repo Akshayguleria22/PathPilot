@@ -35,11 +35,22 @@ Return STRICT JSON:
         const response = await getLLMResponse(prompt);
         console.log("AI Raw Response:", response);
 
+        // Validate response exists
+        if (!response || typeof response !== 'string') {
+            throw new Error("LLM returned invalid response type");
+        }
+
         // Clean the response - remove markdown code blocks if present
         let cleanedResponse = response.trim();
-        if (cleanedResponse.startsWith("```")) {
-            cleanedResponse = cleanedResponse.replace(/```json\n?/g, "").replace(/```\n?/g, "");
+        if (!cleanedResponse) {
+            throw new Error("LLM returned empty response");
         }
+
+        if (cleanedResponse.startsWith("```")) {
+            cleanedResponse = cleanedResponse.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+        }
+
+        console.log("Cleaned Response:", cleanedResponse);
 
         const parsedResponse = JSON.parse(cleanedResponse);
 
@@ -60,12 +71,12 @@ Return STRICT JSON:
         res.json(parsedResponse);
     } catch (err) {
         console.error("Analytics AI error:", err.message);
+        console.error("Full error:", err);
 
         // Send a proper error response instead of partial data
         res.status(500).json({
             message: "Analytics AI failed",
             error: process.env.NODE_ENV === 'development' ? err.message : "AI service temporarily unavailable",
-            // Don't send invalid data that would crash the frontend
         });
     }
 });
