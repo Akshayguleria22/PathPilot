@@ -8,7 +8,7 @@ router.post("/behavior-insights", protect, async (req, res) => {
     try {
         const { weeklySummary, habits } = req.body;
 
-        const prompt = `
+        const prompt = ```
 You are a behavioral analytics AI.
 
 Weekly summary:
@@ -30,7 +30,7 @@ Return STRICT JSON:
   "burnout_risk": "low" | "medium" | "high",
   "next_week_focus": string
 }
-`;
+        ```;
 
         const response = await getLLMResponse(prompt);
         const parsedResponse = JSON.parse(response);

@@ -2,7 +2,7 @@ import os
 import json
 import joblib
 import pandas as pd
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from groq import Groq
@@ -128,7 +128,8 @@ def analyze(data: WeeklyData):
 
 @app.post("/generate-roadmap")
 def generate_roadmap(req: RoadmapRequest):
-    prompt = f"""
+    try:
+        prompt = f"""
 You are an expert learning architect.
 
 Create a structured learning roadmap for:
@@ -150,16 +151,39 @@ Return ONLY valid JSON:
 No explanations. No markdown.
 """
 
-    if not groq_client:
-        raise HTTPException(status_code=503, detail="AI service unavailable: GROQ_API_KEY not configured")
+        if not groq_client:
+            print("❌ GROQ client not available")
+            raise HTTPException(status_code=503, detail="AI service unavailable: GROQ_API_KEY not configured")
 
-    completion = groq_client.chat.completions.create(
-        model="llama-3.1-8b-instant",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.3,
-    )
+        print(f"🔄 Generating roadmap for: {req.course_name} ({req.user_level})")
+        
+        completion = groq_client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+        )
 
-    return json.loads(completion.choices[0].message.content)
+        content = completion.choices[0].message.content
+        print(f"✅ Received response from GROQ")
+        
+        # Parse and validate JSON
+        result = json.loads(content)
+        
+        if "steps" not in result:
+            print("⚠️  Invalid response format: missing 'steps' field")
+            raise HTTPException(status_code=500, detail="Invalid AI response format")
+        
+        print(f"✅ Successfully generated roadmap with {len(result['steps'])} steps")
+        return result
+        
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON parsing error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to parse AI response: {str(e)}")
+    except Exception as e:
+        print(f"❌ Error generating roadmap: {type(e).__name__}: {str(e)}")
+        if isinstance(e, HTTPException):
+            raise
+        raise HTTPException(status_code=500, detail=f"Failed to generate roadmap: {str(e)}")
 
 
 # ---------------- ROADMAP ADAPTATION ---------------- #

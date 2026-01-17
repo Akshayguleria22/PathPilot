@@ -113,7 +113,8 @@ export default function RoadmapPage() {
       }
 
       setRoadmap(data.roadmap);
-      const actions = data.actionsApplied
+      const actions = (data.actionsApplied || [])
+        .filter((a: any) => a && typeof a === "string") // Filter out null/undefined
         .map((a: string) => a.replace(/_/g, " "))
         .join(", ");
       toast.success(`Roadmap adapted! Actions: ${actions}`, {

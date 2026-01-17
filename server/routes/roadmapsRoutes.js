@@ -43,6 +43,8 @@ router.post("/adapt/:courseId", protect, async (req, res) => {
 
         const actions = aiRes.data.actions || [];
 
+        console.log(`📊 Received ${actions.length} actions from AI:`, actions);
+
         // RESET: Remove previously AI-generated steps and restore original statuses
         // Also remove steps with known AI-generated titles (for backward compatibility)
         const aiGeneratedTitles = [
@@ -61,16 +63,16 @@ router.post("/adapt/:courseId", protect, async (req, res) => {
             }
         });
 
-        // APPLY NEW ACTIONS
-        actions.forEach(action => {
-            if (action.type === "skip_intro") {
+        // APPLY NEW ACTIONS (actions are strings like "skip_intro", not objects)
+        actions.forEach(actionType => {
+            if (actionType === "skip_intro") {
                 if (roadmap.steps.length > 0 && roadmap.steps[0].status !== "completed") {
                     roadmap.steps[0].originalStatus = roadmap.steps[0].status;
                     roadmap.steps[0].status = "completed";
                 }
             }
 
-            if (action.type === "add_practice") {
+            if (actionType === "add_practice") {
                 roadmap.steps.push({
                     title: "Extra Practice & Revision",
                     description: "Additional exercises added due to low assessment score.",
@@ -80,7 +82,7 @@ router.post("/adapt/:courseId", protect, async (req, res) => {
                 });
             }
 
-            if (action.type === "increase_challenge") {
+            if (actionType === "increase_challenge") {
                 roadmap.steps.push({
                     title: "Advanced Application Project",
                     description: "Real-world project to increase difficulty.",
@@ -90,7 +92,7 @@ router.post("/adapt/:courseId", protect, async (req, res) => {
                 });
             }
 
-            if (action.type === "reduce_load") {
+            if (actionType === "reduce_load") {
                 roadmap.steps.forEach(step => {
                     if (step.status === "pending") {
                         step.originalStatus = step.status;
@@ -103,16 +105,24 @@ router.post("/adapt/:courseId", protect, async (req, res) => {
 
         await roadmap.save();
 
+        console.log(`✅ Roadmap adapted with actions: ${actions.join(", ")}`);
+
         res.json({
             message: "Roadmap adapted automatically",
-            actionsApplied: actions.map(a => a.type),
+            actionsApplied: actions, // actions are already strings
             roadmap,
         });
     } catch (error) {
-        console.error("Error adapting roadmap:", error);
+        console.error("❌ Error adapting roadmap:", {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status
+        });
+
         res.status(500).json({
             message: "Failed to adapt roadmap",
-            error: error.response?.data?.message || error.message
+            error: error.response?.data?.message || error.message,
+            details: error.response?.data?.detail || "An error occurred while adapting the roadmap"
         });
     }
 });
@@ -179,9 +189,21 @@ router.get("/adapt/:courseId", protect, async (req, res) => {
             courseId: req.params.courseId,
         }).sort({ createdAt: -1 });
 
-        if (!roadmap || !assessment) {
-            return res.status(400).json({ message: "Insufficient data to adapt roadmap" });
+        if (!roadmap) {
+            return res.status(404).json({
+                message: "No roadmap found for this course. Please generate a roadmap first."
+            });
         }
+
+        if (!assessment) {
+            return res.status(400).json({
+                message: "Please submit a self-assessment first before adapting the roadmap."
+            });
+        }
+
+        console.log(`📊 Getting adaptation advice for course ${req.params.courseId}`);
+        console.log(`   Score: ${assessment.score}, Confidence: ${assessment.confidence}`);
+        console.log(`   Progress: ${roadmap.steps.filter(s => s.status === "completed").length}/${roadmap.steps.length}`);
 
         const completed = roadmap.steps.filter(s => s.status === "completed").length;
 
@@ -193,15 +215,28 @@ router.get("/adapt/:courseId", protect, async (req, res) => {
                 total_steps: roadmap.steps.length,
                 score: assessment.score,
                 confidence: assessment.confidence,
+            },
+            {
+                timeout: 30000,
+                headers: {
+                    'Content-Type': 'application/json'
+                }
             }
         );
 
+        console.log(`✅ Received adaptation advice:`, aiRes.data);
         res.json(aiRes.data);
     } catch (error) {
-        console.error("Error getting roadmap adaptation:", error);
+        console.error("❌ Error getting roadmap adaptation:", {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status
+        });
+
         res.status(500).json({ 
             message: "Failed to get roadmap adaptation",
-            error: error.message 
+            error: error.response?.data?.message || error.message,
+            details: error.response?.data?.detail || "An error occurred while getting adaptation advice"
         });
     }
 });
@@ -263,11 +298,22 @@ router.post("/generate/:courseId", protect, async (req, res) => {
         const aiServiceUrl = getAiServiceUrl();
         if (!aiServiceUrl) {
             return res.status(503).json({
-                message: "AI service URL not configured"
+                message: "AI service URL not configured. Please contact administrator.",
+                details: "The AI_SERVICE_URL environment variable is not set."
             });
         }
 
+        console.log(`🔄 Generating roadmap for course: ${course.name}`);
+
         const roadmap = await generateRoadmap(course.name);
+
+        if (!roadmap || !roadmap.steps || !Array.isArray(roadmap.steps)) {
+            console.error("❌ Invalid roadmap format received:", roadmap);
+            return res.status(500).json({
+                message: "Received invalid roadmap format from AI service",
+                details: "The AI service returned an unexpected response format."
+            });
+        }
 
         const saved = await Roadmap.create({
             userId: req.user._id,
@@ -278,11 +324,37 @@ router.post("/generate/:courseId", protect, async (req, res) => {
             })),
         });
 
+        console.log(`✅ Successfully created roadmap with ${saved.steps.length} steps`);
         res.json(saved);
+
     } catch (error) {
-        console.error("Error generating roadmap:", error);
-        res.status(500).json({
-            message: "Failed to generate roadmap",
+        console.error("❌ Error generating roadmap:", {
+            message: error.message,
+            stack: error.stack
+        });
+
+        // Determine appropriate status code
+        let statusCode = 500;
+        let message = "Failed to generate roadmap";
+        let details = error.message;
+
+        if (error.message.includes("not reachable") || error.message.includes("ECONNREFUSED")) {
+            statusCode = 503;
+            message = "AI service is currently unavailable";
+            details = "The AI service cannot be reached. It may be starting up or experiencing issues.";
+        } else if (error.message.includes("timed out")) {
+            statusCode = 504;
+            message = "Request to AI service timed out";
+            details = "The AI service took too long to respond. Please try again.";
+        } else if (error.message.includes("Bad Gateway")) {
+            statusCode = 502;
+            message = "AI service gateway error";
+            details = "The AI service is experiencing connectivity issues.";
+        }
+
+        res.status(statusCode).json({
+            message,
+            details,
             error: error.message
         });
     }
