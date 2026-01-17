@@ -99,12 +99,12 @@ export default function Analytics() {
         return;
       }
 
-      // Validate response has required fields
+      // Validate response has required fields AND correct types
       if (
         data &&
         data.burnout_risk &&
-        data.positive_trends &&
-        data.risk_factors
+        Array.isArray(data.positive_trends) &&
+        Array.isArray(data.risk_factors)
       ) {
         setAiAnalytics(data);
         localStorage.setItem("behavioral_insights", JSON.stringify(data));
@@ -142,16 +142,17 @@ export default function Analytics() {
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        // Validate cached data has required fields
+        // Validate cached data has required fields AND they're the correct types
         if (
           parsed &&
           parsed.burnout_risk &&
-          parsed.positive_trends &&
-          parsed.risk_factors
+          Array.isArray(parsed.positive_trends) &&
+          Array.isArray(parsed.risk_factors)
         ) {
           setAiAnalytics(parsed);
         } else {
           // Invalid cached data, remove it
+          console.warn("Removing invalid cached insights:", parsed);
           localStorage.removeItem("behavioral_insights");
         }
       } catch (error) {
