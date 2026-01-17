@@ -1,20 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
 import Protected from "@/components/Protected";
-import {
-  fetchWeeklySummary,
-  getAnalyticsInsights,
-  getRecentHabits,
-} from "@/lib/api";
+import { fetchWeeklySummary, getRecentHabits } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import {
   FaChartLine,
   FaBrain,
-  FaRobot,
   FaBed,
-  FaBook,
   FaGamepad,
   FaDumbbell,
   FaUtensils,
@@ -38,10 +32,44 @@ import {
   CartesianGrid,
 } from "recharts";
 
+interface DailyLog {
+  date: string;
+  sleep?: number;
+  study?: number;
+  exercise?: number;
+  entertainment?: number;
+  mood?: number;
+  foodQuality?: number;
+}
+
+interface ChartDataPoint extends DailyLog {
+  day: string;
+  hasData: boolean;
+}
+
+interface WeeklySummary {
+  sleep: number;
+  study: number;
+  exercise: number;
+  entertainment: number;
+  mood: number;
+  foodQuality: number;
+  count: number;
+}
+
+interface AIAnalytics {
+  burnout_risk?: string;
+  positive_trends?: string[];
+  risk_factors?: string[];
+  recommendations?: string[];
+  overall_health_score?: number;
+  next_week_focus?: string;
+}
+
 export default function Analytics() {
-  const [summary, setSummary] = useState<any>(null);
-  const [logs, setLogs] = useState<any[]>([]);
-  const [aiAnalytics, setAiAnalytics] = useState<any>(null);
+  const [summary, setSummary] = useState<WeeklySummary | null>(null);
+  const [logs, setLogs] = useState<DailyLog[]>([]);
+  const [aiAnalytics, setAiAnalytics] = useState<AIAnalytics | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
 
   const loadAIAnalytics = async () => {
@@ -59,7 +87,7 @@ export default function Analytics() {
             weeklySummary: summary,
             habits: logs,
           }),
-        }
+        },
       );
 
       const data = await res.json();
@@ -106,13 +134,6 @@ export default function Analytics() {
       setLogs([]);
     }
   };
-
-  const weeklyStudy = logs.reduce((total, log) => total + (log.study || 0), 0);
-
-  const avgSleep =
-    logs.length > 0
-      ? logs.reduce((total, log) => total + (log.sleep || 0), 0) / logs.length
-      : 0;
 
   useEffect(() => {
     load();
@@ -170,7 +191,7 @@ export default function Analytics() {
       const dateStr = currentDate.toISOString().split("T")[0];
 
       // Find log for this date
-      const log = logs.find((l: any) => l.date === dateStr);
+      const log = logs.find((l: DailyLog) => l.date === dateStr);
 
       weekDays.push({
         day: dayNames[i],
@@ -295,7 +316,7 @@ export default function Analytics() {
                         <p className="text-sm text-zinc-600 dark:text-zinc-400">
                           Days Tracked
                         </p>
-                        <FaBook className="text-3xl text-zinc-500 dark:text-zinc-600" />
+                        <FaChartLine className="text-3xl text-zinc-500 dark:text-zinc-600" />
                       </div>
                       <p className="text-5xl font-bold text-zinc-800 dark:text-zinc-100">
                         {summary.count}
@@ -419,8 +440,8 @@ export default function Analytics() {
                               aiAnalytics.burnout_risk === "high"
                                 ? "text-red-600 dark:text-red-400"
                                 : aiAnalytics.burnout_risk === "medium"
-                                ? "text-amber-600 dark:text-amber-400"
-                                : "text-green-600 dark:text-green-400"
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-green-600 dark:text-green-400"
                             }`}
                           />
                           Burnout Risk:
@@ -429,8 +450,8 @@ export default function Analytics() {
                               aiAnalytics.burnout_risk === "high"
                                 ? "text-red-600 dark:text-red-400"
                                 : aiAnalytics.burnout_risk === "medium"
-                                ? "text-amber-600 dark:text-amber-400"
-                                : "text-green-600 dark:text-green-400"
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-green-600 dark:text-green-400"
                             }`}
                           >
                             {aiAnalytics.burnout_risk?.toUpperCase() ||
@@ -446,19 +467,20 @@ export default function Analytics() {
                           Positive Trends
                         </h4>
                         <ul className="space-y-2">
-                          {aiAnalytics.positive_trends?.map(
-                            (t: string, i: number) => (
-                              <li
-                                key={i}
-                                className="flex items-start gap-2 text-zinc-700 dark:text-zinc-300"
-                              >
-                                <span className="text-green-600 dark:text-green-400">
-                                  •
-                                </span>
-                                {t}
-                              </li>
-                            )
-                          )}
+                          {Array.isArray(aiAnalytics.positive_trends) &&
+                            aiAnalytics.positive_trends.map(
+                              (t: string, i: number) => (
+                                <li
+                                  key={i}
+                                  className="flex items-start gap-2 text-zinc-700 dark:text-zinc-300"
+                                >
+                                  <span className="text-green-600 dark:text-green-400">
+                                    •
+                                  </span>
+                                  {t}
+                                </li>
+                              ),
+                            )}
                         </ul>
                       </div>
 
@@ -469,19 +491,20 @@ export default function Analytics() {
                           Risk Factors
                         </h4>
                         <ul className="space-y-2">
-                          {aiAnalytics.risk_factors?.map(
-                            (r: string, i: number) => (
-                              <li
-                                key={i}
-                                className="flex items-start gap-2 text-zinc-700 dark:text-zinc-300"
-                              >
-                                <span className="text-red-600 dark:text-red-400">
-                                  •
-                                </span>
-                                {r}
-                              </li>
-                            )
-                          )}
+                          {Array.isArray(aiAnalytics.risk_factors) &&
+                            aiAnalytics.risk_factors.map(
+                              (r: string, i: number) => (
+                                <li
+                                  key={i}
+                                  className="flex items-start gap-2 text-zinc-700 dark:text-zinc-300"
+                                >
+                                  <span className="text-red-600 dark:text-red-400">
+                                    •
+                                  </span>
+                                  {r}
+                                </li>
+                              ),
+                            )}
                         </ul>
                       </div>
 
@@ -655,7 +678,7 @@ export default function Analytics() {
                             Study & Sleep Trends
                           </CardTitle>
                           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                            This week's daily hours
+                            This week&apos;s daily hours
                           </p>
                         </CardHeader>
                         <CardContent>
@@ -921,7 +944,7 @@ export default function Analytics() {
                           </span>
                           <Badge
                             className={`${
-                              parseFloat(metric.value) >= metric.target
+                              metric.value >= metric.target
                                 ? "bg-green-600 dark:bg-green-500"
                                 : "bg-orange-600 dark:bg-orange-500"
                             } text-white`}
@@ -931,17 +954,12 @@ export default function Analytics() {
                         </div>
                         <div className="space-y-1">
                           <Progress
-                            value={
-                              (parseFloat(metric.value) / metric.target) * 100
-                            }
+                            value={(metric.value / metric.target) * 100}
                             className="h-2"
                           />
                           <p className="text-xs text-gray-500 text-right">
-                            {(
-                              (parseFloat(metric.value) / metric.target) *
-                              100
-                            ).toFixed(0)}
-                            % of target
+                            {((metric.value / metric.target) * 100).toFixed(0)}%
+                            of target
                           </p>
                         </div>
                       </CardContent>
