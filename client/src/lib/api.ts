@@ -144,6 +144,22 @@ export const logHabit = async (data: any) => {
     return res.json();
 };
 
+export const getRecentHabits = async () => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API_URL}/api/habits/recent`, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+};
+
+export const fetchWeeklySummary = async () => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API_URL}/api/analytics/weekly`, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+};
+
 export const getAIAdvice = async (data: any) => {
     const aiServiceUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || API_URL;
     const res = await fetch(`${aiServiceUrl}/analyze`, {
@@ -368,28 +384,5 @@ export const searchNews = async (topic: string, limit = 5) => {
             headers: { Authorization: `Bearer ${token}` },
         }
     );
-    return res.json();
-};
-
-// Analytics API
-export const fetchWeeklySummary = async () => {
-    const token = localStorage.getItem("token");
-    const res = await fetch(`${API_URL}/api/daily-log/week/summary`, {
-        headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-        throw new Error("Failed to fetch weekly summary");
-    }
-    return res.json();
-};
-
-export const getRecentHabits = async () => {
-    const token = localStorage.getItem("token");
-    const res = await fetch(`${API_URL}/api/daily-log/recent`, {
-        headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-        throw new Error("Failed to fetch recent habits");
-    }
     return res.json();
 };
