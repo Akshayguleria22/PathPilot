@@ -40,7 +40,8 @@ const corsOptions = {
         }
     },
     credentials: true,
-    optionsSuccessStatus: 200
+    optionsSuccessStatus: 200,
+    allowedHeaders: ["Content-Type", "Authorization", "X-Device-Id"]
 };
 
 app.use(cors(corsOptions));

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,14 +27,10 @@ import {
 } from "react-icons/fa";
 
 export default function Home() {
-  const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    const token = localStorage.getItem("token");
-    setIsLoggedIn(!!token);
   }, []);
 
   const howItWorksSteps = [
@@ -209,29 +204,24 @@ export default function Home() {
                 <div className="h-14 w-full sm:w-64" />
               ) : (
                 <>
-                  <Link
-                    href={isLoggedIn ? "/dashboard" : "/register"}
-                    className="w-full sm:w-auto"
-                  >
+                  <Link href="/dashboard" className="w-full sm:w-auto">
                     <Button
                       size="lg"
                       className="w-full sm:w-auto h-14 px-8 text-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 shadow-lg hover:shadow-xl transition-all duration-300 group"
                     >
-                      {isLoggedIn ? "Go to Dashboard" : "Get Started"}
+                      Go to Dashboard
                       <FaArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
                     </Button>
                   </Link>
-                  {!isLoggedIn && (
-                    <Link href="/login" className="w-full sm:w-auto">
-                      <Button
-                        size="lg"
-                        variant="outline"
-                        className="w-full sm:w-auto h-14 px-8 text-lg border-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-900 hover:text-white dark:hover:bg-zinc-100 dark:hover:text-zinc-900 transition-all duration-300"
-                      >
-                        View Demo
-                      </Button>
-                    </Link>
-                  )}
+                  <Link href="/dashboard" className="w-full sm:w-auto">
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="w-full sm:w-auto h-14 px-8 text-lg border-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-900 hover:text-white dark:hover:bg-zinc-100 dark:hover:text-zinc-900 transition-all duration-300"
+                    >
+                      Explore Dashboard
+                    </Button>
+                  </Link>
                 </>
               )}
             </motion.div>
@@ -482,13 +472,13 @@ export default function Home() {
             Join students who let AI handle the optimization while they focus on
             actual learning.
           </p>
-          <Link href={mounted && isLoggedIn ? "/dashboard" : "/register"}>
+          <Link href="/dashboard">
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Button
                 size="lg"
                 className="h-16 px-12 text-xl bg-white text-zinc-900 hover:bg-zinc-100 shadow-2xl hover:shadow-3xl transition-all duration-300 group"
               >
-                {mounted && isLoggedIn ? "Go to Dashboard" : "Start Free Today"}
+                Go to Dashboard
                 <FaArrowRight className="ml-3 group-hover:translate-x-1 transition-transform" />
               </Button>
             </motion.div>

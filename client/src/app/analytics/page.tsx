@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Protected from "@/components/Protected";
-import { fetchWeeklySummary, getRecentHabits } from "@/lib/api";
+import { API_URL, apiFetch, deviceHeaders, fetchWeeklySummary, getRecentHabits } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
@@ -75,20 +75,14 @@ export default function Analytics() {
   const loadAIAnalytics = async () => {
     setLoadingAI(true);
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/ai/analytics/behavior-insights`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify({
-            weeklySummary: summary,
-            habits: logs,
-          }),
-        },
-      );
+      const res = await apiFetch(`${API_URL}/api/ai/analytics/behavior-insights`, {
+        method: "POST",
+        headers: deviceHeaders(true),
+        body: JSON.stringify({
+          weeklySummary: summary,
+          habits: logs,
+        }),
+      });
 
       const data = await res.json();
 

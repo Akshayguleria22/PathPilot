@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+// Ignore missing css module type declarations for this side-effect import
+// TypeScript may error if no "declare module '*.css'" is present in the project types
+// @ts-ignore
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import Navbar from "@/components/Navbar";
 import ToastProvider from "@/components/ToastProvider";
+import BackendWake from "@/components/BackendWake";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,6 +42,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <BackendWake />
           <ToastProvider />
           <Navbar />
           <div className="relative z-10">{children}</div>

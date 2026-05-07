@@ -25,7 +25,6 @@ export default function Login() {
     setLoading(true);
     const res = await loginUser(form);
     if (res.token) {
-      localStorage.setItem("token", res.token);
       router.push("/");
     } else {
       alert(res.message);

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -9,7 +9,6 @@ import {
   FaBook,
   FaChartLine,
   FaCalendarCheck,
-  FaSignOutAlt,
   FaCalendar,
   FaTrophy,
   FaBars,
@@ -20,35 +19,8 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function Navbar() {
-  const router = useRouter();
   const pathname = usePathname();
-  const [token, setToken] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  useEffect(() => {
-    // Check token on mount and pathname change
-    const checkToken = () => {
-      setToken(localStorage.getItem("token"));
-    };
-
-    checkToken();
-
-    // Listen for storage changes (in case of login/logout in another tab)
-    window.addEventListener("storage", checkToken);
-
-    return () => {
-      window.removeEventListener("storage", checkToken);
-    };
-  }, [pathname]); // Re-check when pathname changes
-
-  const logoutHandler = () => {
-    localStorage.removeItem("token");
-    setToken(null);
-    setMobileMenuOpen(false);
-    // Dispatch storage event manually for same-window updates
-    window.dispatchEvent(new Event("storage"));
-    router.push("/login");
-  };
 
   const closeMenu = () => setMobileMenuOpen(false);
 
@@ -64,11 +36,6 @@ export default function Navbar() {
   }, [mobileMenuOpen]);
 
   const isActive = (path: string) => pathname === path;
-
-  // Don't show navbar on login/register pages
-  if (pathname === "/login" || pathname === "/register") {
-    return null;
-  }
 
   return (
     <>
@@ -87,79 +54,46 @@ export default function Navbar() {
             <span className="text-zinc-800 dark:text-zinc-100">PathPilot</span>
           </Link>
 
-          {/* Desktop Menu */}
           <div className="hidden lg:flex items-center gap-2">
-            {token ? (
-              <>
-                <NavLink
-                  href="/dashboard"
-                  isActive={isActive("/dashboard")}
-                  icon={<MdDashboard />}
-                  label="Dashboard"
-                />
-                <NavLink
-                  href="/courses"
-                  isActive={isActive("/courses")}
-                  icon={<FaBook />}
-                  label="Courses"
-                />
-                <NavLink
-                  href="/habits"
-                  isActive={isActive("/habits")}
-                  icon={<FaCalendarCheck />}
-                  label="Habits"
-                />
-                <NavLink
-                  href="/analytics"
-                  isActive={isActive("/analytics")}
-                  icon={<FaChartLine />}
-                  label="Analytics"
-                />
-                <NavLink
-                  href="/calendar"
-                  isActive={isActive("/calendar")}
-                  icon={<FaCalendar />}
-                  label="Calendar"
-                />
-                <NavLink
-                  href="/badges"
-                  isActive={isActive("/badges")}
-                  icon={<FaTrophy />}
-                  label="Badges"
-                />
-                <ThemeToggle />
-                <Button
-                  onClick={logoutHandler}
-                  variant="outline"
-                  size="sm"
-                  className="ml-2"
-                >
-                  <FaSignOutAlt className="sm:mr-2" />
-                  <span className="hidden sm:inline">Logout</span>
-                </Button>
-              </>
-            ) : (
-              <>
-                <ThemeToggle />
-                <Button
-                  onClick={() => router.push("/login")}
-                  variant="outline"
-                  size="sm"
-                >
-                  Login
-                </Button>
-                <Button
-                  onClick={() => router.push("/register")}
-                  size="sm"
-                  className="bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-200"
-                >
-                  Get Started
-                </Button>
-              </>
-            )}
+            <NavLink
+              href="/dashboard"
+              isActive={isActive("/dashboard")}
+              icon={<MdDashboard />}
+              label="Dashboard"
+            />
+            <NavLink
+              href="/courses"
+              isActive={isActive("/courses")}
+              icon={<FaBook />}
+              label="Courses"
+            />
+            <NavLink
+              href="/habits"
+              isActive={isActive("/habits")}
+              icon={<FaCalendarCheck />}
+              label="Habits"
+            />
+            <NavLink
+              href="/analytics"
+              isActive={isActive("/analytics")}
+              icon={<FaChartLine />}
+              label="Analytics"
+            />
+            <NavLink
+              href="/calendar"
+              isActive={isActive("/calendar")}
+              icon={<FaCalendar />}
+              label="Calendar"
+            />
+            <NavLink
+              href="/badges"
+              isActive={isActive("/badges")}
+              icon={<FaTrophy />}
+              label="Badges"
+            />
+            <ThemeToggle />
           </div>
 
-          {/* Mobile Menu Button */}
           <div className="flex items-center gap-3 lg:hidden">
             <ThemeToggle />
             <Button
@@ -178,7 +112,6 @@ export default function Navbar() {
         </div>
       </motion.nav>
 
-      {/* Mobile Menu Overlay */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <>
@@ -198,84 +131,48 @@ export default function Navbar() {
               className="fixed top-[57px] sm:top-[65px] right-0 bottom-0 w-[280px] bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 shadow-2xl z-50 lg:hidden overflow-y-auto"
             >
               <div className="p-6 space-y-2">
-                {token ? (
-                  <>
-                    <MobileNavLink
-                      href="/dashboard"
-                      isActive={isActive("/dashboard")}
-                      icon={<MdDashboard />}
-                      label="Dashboard"
-                      onClick={closeMenu}
-                    />
-                    <MobileNavLink
-                      href="/courses"
-                      isActive={isActive("/courses")}
-                      icon={<FaBook />}
-                      label="Courses"
-                      onClick={closeMenu}
-                    />
-                    <MobileNavLink
-                      href="/habits"
-                      isActive={isActive("/habits")}
-                      icon={<FaCalendarCheck />}
-                      label="Habits"
-                      onClick={closeMenu}
-                    />
-                    <MobileNavLink
-                      href="/analytics"
-                      isActive={isActive("/analytics")}
-                      icon={<FaChartLine />}
-                      label="Analytics"
-                      onClick={closeMenu}
-                    />
-                    <MobileNavLink
-                      href="/calendar"
-                      isActive={isActive("/calendar")}
-                      icon={<FaCalendar />}
-                      label="Calendar"
-                      onClick={closeMenu}
-                    />
-                    <MobileNavLink
-                      href="/badges"
-                      isActive={isActive("/badges")}
-                      icon={<FaTrophy />}
-                      label="Badges"
-                      onClick={closeMenu}
-                    />
-                    <div className="pt-4 mt-4 border-t border-zinc-200 dark:border-zinc-800">
-                      <Button
-                        onClick={logoutHandler}
-                        variant="outline"
-                        className="w-full justify-start h-12 text-base"
-                      >
-                        <FaSignOutAlt className="mr-3" />
-                        Logout
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <Button
-                      onClick={() => {
-                        router.push("/login");
-                        closeMenu();
-                      }}
-                      variant="outline"
-                      className="w-full h-12 text-base"
-                    >
-                      Login
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        router.push("/register");
-                        closeMenu();
-                      }}
-                      className="w-full h-12 text-base bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-200"
-                    >
-                      Get Started
-                    </Button>
-                  </>
-                )}
+                <MobileNavLink
+                  href="/dashboard"
+                  isActive={isActive("/dashboard")}
+                  icon={<MdDashboard />}
+                  label="Dashboard"
+                  onClick={closeMenu}
+                />
+                <MobileNavLink
+                  href="/courses"
+                  isActive={isActive("/courses")}
+                  icon={<FaBook />}
+                  label="Courses"
+                  onClick={closeMenu}
+                />
+                <MobileNavLink
+                  href="/habits"
+                  isActive={isActive("/habits")}
+                  icon={<FaCalendarCheck />}
+                  label="Habits"
+                  onClick={closeMenu}
+                />
+                <MobileNavLink
+                  href="/analytics"
+                  isActive={isActive("/analytics")}
+                  icon={<FaChartLine />}
+                  label="Analytics"
+                  onClick={closeMenu}
+                />
+                <MobileNavLink
+                  href="/calendar"
+                  isActive={isActive("/calendar")}
+                  icon={<FaCalendar />}
+                  label="Calendar"
+                  onClick={closeMenu}
+                />
+                <MobileNavLink
+                  href="/badges"
+                  isActive={isActive("/badges")}
+                  icon={<FaTrophy />}
+                  label="Badges"
+                  onClick={closeMenu}
+                />
               </div>
             </motion.div>
           </>

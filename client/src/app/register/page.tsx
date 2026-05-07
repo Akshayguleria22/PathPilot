@@ -27,9 +27,6 @@ export default function Register() {
     const res = await registerUser(form);
 
     if (res.token) {
-      localStorage.setItem("token", res.token);
-      // Dispatch storage event for navbar update
-      window.dispatchEvent(new Event("storage"));
       router.push("/dashboard");
     } else {
       alert(res.message);

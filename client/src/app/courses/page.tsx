@@ -2,9 +2,12 @@
 
 import { useState, useEffect } from "react";
 import {
+  API_URL,
   addCourse,
-  getCourses,
+  apiFetch,
+  deviceHeaders,
   generateRoadmap,
+  getCourses,
   logCourseActivity,
 } from "@/lib/api";
 
@@ -146,16 +149,10 @@ export default function Courses() {
   const fetchGoalAdjustments = async () => {
     const toastId = toast.loading("Analyzing your goals...");
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/ai/goals/goal-adjustments`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
+      const res = await apiFetch(`${API_URL}/api/ai/goals/goal-adjustments`, {
+        method: "POST",
+        headers: deviceHeaders(true),
+      });
       const data = await res.json();
       setGoalSuggestions(data);
       setShowGoalModal(true);
@@ -169,23 +166,17 @@ export default function Courses() {
   const applyCourseGoal = async (adjustment: GoalSuggestion) => {
     const toastId = toast.loading("Applying goal adjustment...");
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/habits/apply-goal`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+      const res = await apiFetch(`${API_URL}/api/habits/apply-goal`, {
+        method: "PATCH",
+        headers: deviceHeaders(true),
+        body: JSON.stringify({
+          type: "course",
+          payload: {
+            courseId: adjustment.courseId,
+            newTargetHours: adjustment.newTargetHours,
           },
-          body: JSON.stringify({
-            type: "course",
-            payload: {
-              courseId: adjustment.courseId,
-              newTargetHours: adjustment.newTargetHours,
-            },
-          }),
-        }
-      );
+        }),
+      });
 
       if (res.ok) {
         toast.success(
@@ -225,21 +216,15 @@ export default function Courses() {
   const loadAIInsights = async () => {
     setLoadingAI(true);
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/ai/course-insights`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify({
-            courses,
-            habits: [],
-            streak: 0,
-          }),
-        }
-      );
+      const res = await apiFetch(`${API_URL}/api/ai/course-insights`, {
+        method: "POST",
+        headers: deviceHeaders(true),
+        body: JSON.stringify({
+          courses,
+          habits: [],
+          streak: 0,
+        }),
+      });
 
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
