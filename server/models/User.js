@@ -1,9 +1,11 @@
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
+    name: { type: String, required: false, default: "Anonymous" },
+    email: { type: String, required: false, unique: true, sparse: true },
+    password: { type: String, required: false },
+    deviceId: { type: String, unique: true, sparse: true },
+    isAnonymous: { type: Boolean, default: false },
     oauthProvider: { type: String }, // 'google' or 'github'
     oauthProviderId: { type: String }, // Provider's user ID
     habitTargets: {
