@@ -110,13 +110,13 @@ export const wakeBackend = async () => {
 
 export const registerUser = async (data: any) => {
     setLocalData("userProfile", data);
-    return { success: true, user: data };
+    return { success: true, user: data, token: "local-mock-token", message: "Registered successfully" };
 };
 
 export const loginUser = async (data: any) => {
     const user = getLocalData("userProfile", null);
     if (!user) throw new Error("No user found locally");
-    return { success: true, user };
+    return { success: true, user, token: "local-mock-token", message: "Logged in successfully" };
 };
 
 export const getHabitTargets = async () => {
@@ -187,7 +187,7 @@ export const logHabit = async (data: any) => {
         habits.push({ ...data, date: today });
     }
     setLocalData("habits", habits);
-    return { success: true };
+    return { success: true, message: "Habit logged successfully" };
 };
 
 export const submitTodayLog = async (data: any) => {
@@ -210,7 +210,15 @@ export const getTodayHabit = async () => {
 
 export const fetchWeeklySummary = async () => {
     const habits = await getRecentHabits();
-    if (habits.length === 0) return { count: 0 };
+    if (habits.length === 0) return { 
+        count: 0, 
+        sleep: 0, 
+        study: 0, 
+        exercise: 0, 
+        entertainment: 0, 
+        mood: 0, 
+        foodQuality: 0 
+    };
     
     const summary = habits.reduce((acc: any, h: any) => {
         acc.sleep += Number(h.sleep) || 0;
@@ -223,11 +231,12 @@ export const fetchWeeklySummary = async () => {
     }, { sleep: 0, study: 0, exercise: 0, entertainment: 0, mood: 0, foodQuality: 0, count: habits.length });
 
     return {
-        sleep: (summary.sleep / summary.count).toFixed(1),
-        study: (summary.study / summary.count).toFixed(1),
-        exercise: (summary.exercise / summary.count).toFixed(1),
-        entertainment: (summary.entertainment / summary.count).toFixed(1),
-        mood: (summary.mood / summary.count).toFixed(1),
+        sleep: Number((summary.sleep / summary.count).toFixed(1)),
+        study: Number((summary.study / summary.count).toFixed(1)),
+        exercise: Number((summary.exercise / summary.count).toFixed(1)),
+        entertainment: Number((summary.entertainment / summary.count).toFixed(1)),
+        mood: Number((summary.mood / summary.count).toFixed(1)),
+        foodQuality: Number((summary.foodQuality / summary.count).toFixed(1)),
         count: summary.count
     };
 };
@@ -242,7 +251,18 @@ export const getStreak = async () => {
 };
 
 export const getStreakAndBadges = async () => {
-    return { streak: 0, badges: [] };
+    const habits = getLocalData("habits", []);
+    let totalStudyHours = 0;
+    habits.forEach((h: any) => {
+        totalStudyHours += Number(h.study) || 0;
+    });
+
+    return { 
+        streak: habits.length > 0 ? habits.length : 0, 
+        badges: [],
+        totalDays: habits.length,
+        totalStudyHours
+    };
 };
 
 export const getBurnoutRisk = async () => {
