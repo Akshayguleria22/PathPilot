@@ -313,28 +313,41 @@ export const getAnalyticsInsights = async (summary: any, logs: any[]) => {
 };
 
 export const generateRoadmap = async (courseId: string) => {
-    const res = await fetchWithDevice(
-        `${API_URL}/api/roadmap/generate/${courseId}`,
-        {
-            method: "POST",
-            headers: buildHeaders(),
-        }
-    );
-    return res.json();
+    const courses = getLocalData("courses", []);
+    const course = courses.find((c: any) => c._id === courseId);
+    if (!course) throw new Error("Course not found");
+
+    const aiServiceUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || API_URL;
+    const res = await fetch(`${aiServiceUrl}/generate-roadmap`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            course_name: course.name,
+            user_level: "beginner"
+        })
+    });
+    
+    if (!res.ok) throw new Error("Failed to generate roadmap from AI service");
+    const roadmapData = await res.json();
+    
+    const roadmap = {
+        _id: crypto.randomUUID ? crypto.randomUUID() : `pp_${Math.random()}`,
+        courseId,
+        steps: roadmapData.steps.map((s: any) => ({ ...s, status: "pending" }))
+    };
+    
+    const roadmaps = getLocalData("roadmaps", []);
+    roadmaps.push(roadmap);
+    setLocalData("roadmaps", roadmaps);
+    
+    return roadmap;
 };
 
 export const getRoadmap = async (courseId: string) => {
-    const res = await fetchWithDevice(
-        `${API_URL}/api/roadmap/${courseId}`,
-        {
-            headers: buildHeaders(),
-        }
-    );
-    const data = await res.json();
-    if (!res.ok) {
-        throw new Error(data.message || "Failed to fetch roadmap");
-    }
-    return data;
+    const roadmaps = getLocalData("roadmaps", []);
+    const roadmap = roadmaps.find((r: any) => r.courseId === courseId);
+    if (!roadmap) throw new Error("Roadmap not found");
+    return roadmap;
 };
 
 export const updateRoadmapStep = async (
@@ -342,18 +355,25 @@ export const updateRoadmapStep = async (
     stepIndex: number,
     status: "pending" | "in-progress" | "completed"
 ) => {
-    const res = await fetchWithDevice(
-        `${API_URL}/api/roadmap/${courseId}/step/${stepIndex}`,
-        {
-            method: "PATCH",
-            headers: {
-                ...buildHeaders(undefined, true),
-            },
-            body: JSON.stringify({ status }),
-        }
-    );
-
-    return res.json();
+    const roadmaps = getLocalData("roadmaps", []);
+    const roadmapIndex = roadmaps.findIndex((r: any) => r.courseId === courseId);
+    if (roadmapIndex === -1) throw new Error("Roadmap not found");
+    
+    roadmaps[roadmapIndex].steps[stepIndex].status = status;
+    setLocalData("roadmaps", roadmaps);
+    
+    const total = roadmaps[roadmapIndex].steps.length;
+    const completed = roadmaps[roadmapIndex].steps.filter((s: any) => s.status === "completed").length;
+    const progress = Math.round((completed / total) * 100);
+    
+    const courses = getLocalData("courses", []);
+    const courseIndex = courses.findIndex((c: any) => c._id === courseId);
+    if (courseIndex !== -1) {
+        courses[courseIndex].progress = progress;
+        setLocalData("courses", courses);
+    }
+    
+    return { roadmap: roadmaps[roadmapIndex], progress };
 };
 
 export const submitAssessment = async (
@@ -361,35 +381,81 @@ export const submitAssessment = async (
     score: number,
     confidence: number
 ) => {
-    const res = await fetchWithDevice(`${API_URL}/api/assessment/${courseId}`, {
-        method: "POST",
-        headers: buildHeaders(undefined, true),
-        body: JSON.stringify({ score, confidence }),
-    });
-    return res.json();
+    const assessments = getLocalData("assessments", []);
+    assessments.push({ courseId, score, confidence, createdAt: new Date().toISOString() });
+    setLocalData("assessments", assessments);
+    return { success: true };
 };
 
 export const getAIRoadmapAdvice = async (courseId: string) => {
-    const res = await fetchWithDevice(`${API_URL}/api/roadmap/adapt/${courseId}`, {
-        headers: buildHeaders(),
+    const roadmaps = getLocalData("roadmaps", []);
+    const roadmap = roadmaps.find((r: any) => r.courseId === courseId);
+    
+    const assessments = getLocalData("assessments", []);
+    const courseAssessments = assessments.filter((a: any) => a.courseId === courseId);
+    const assessment = courseAssessments[courseAssessments.length - 1];
+    
+    if (!roadmap) throw new Error("No roadmap found");
+    if (!assessment) throw new Error("No assessment found");
+    
+    const completed = roadmap.steps.filter((s: any) => s.status === "completed").length;
+    
+    const aiServiceUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || API_URL;
+    const res = await fetch(`${aiServiceUrl}/adapt-roadmap`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            course_name: "Course",
+            completed_steps: completed,
+            total_steps: roadmap.steps.length,
+            score: assessment.score,
+            confidence: assessment.confidence
+        })
     });
-    const data = await res.json();
-    if (!res.ok) {
-        throw new Error(data.message || "AI needs more data to adapt the roadmap.");
-    }
-    return data;
+    
+    if (!res.ok) throw new Error("AI needs more data to adapt the roadmap");
+    return res.json();
 };
 
 export const autoAdaptRoadmap = async (courseId: string) => {
-    const res = await fetchWithDevice(`${API_URL}/api/roadmap/adapt/${courseId}`, {
-        method: "POST",
-        headers: buildHeaders(),
+    const advice = await getAIRoadmapAdvice(courseId);
+    const actions = advice.actions || [];
+    
+    const roadmaps = getLocalData("roadmaps", []);
+    const roadmapIndex = roadmaps.findIndex((r: any) => r.courseId === courseId);
+    if (roadmapIndex === -1) throw new Error("Roadmap not found");
+    const roadmap = roadmaps[roadmapIndex];
+    
+    actions.forEach((actionType: string) => {
+        if (actionType === "skip_intro" && roadmap.steps.length > 0 && roadmap.steps[0].status !== "completed") {
+             roadmap.steps[0].status = "completed";
+        }
+        if (actionType === "add_practice") {
+            roadmap.steps.push({
+                title: "Extra Practice & Revision",
+                description: "Additional exercises added due to low assessment score.",
+                resources: [],
+                status: "pending",
+                aiGenerated: true,
+            });
+        }
+        if (actionType === "increase_challenge") {
+            roadmap.steps.push({
+                title: "Advanced Application Project",
+                description: "Real-world project to increase difficulty.",
+                resources: [],
+                status: "pending",
+                aiGenerated: true,
+            });
+        }
     });
-    const data = await res.json();
-    if (!res.ok) {
-        throw new Error(data.message || "AI needs more data.");
-    }
-    return data;
+    
+    setLocalData("roadmaps", roadmaps);
+    return {
+        message: "Roadmap adapted automatically",
+        actionsApplied: actions,
+        roadmap
+    };
 };
 
 // Search API
