@@ -244,10 +244,25 @@ export default function Courses() {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
 
   const loadCourses = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    const data = await getCourses();
-    setCourses(data);
-    setLoading(false);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const data = await getCourses();
+      if (Array.isArray(data)) {
+        setCourses(data);
+      } else {
+        console.error("Failed to load courses:", data);
+        setCourses([]);
+        if (data?.message) {
+          toast.error(data.message);
+        }
+      }
+    } catch (err) {
+      console.error("Error loading courses:", err);
+      setCourses([]);
+      toast.error("Failed to load courses");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const submit = async () => {

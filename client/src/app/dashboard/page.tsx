@@ -70,7 +70,7 @@ export default function Dashboard() {
       const weekly = await fetchWeeklySummary();
       setSummary(weekly);
       const courses = await getCoursesList();
-      setCourseCount(courses.length);
+      setCourseCount(Array.isArray(courses) ? courses.length : 0);
       const recent = await getRecentHabits();
       setWeekData(Array.isArray(recent) ? recent : []);
 
