@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { wakeBackend } from "@/lib/api";
 import {
   FaGraduationCap,
   FaChartLine,
@@ -31,6 +32,7 @@ export default function Home() {
 
   useEffect(() => {
     setMounted(true);
+    wakeBackend();
   }, []);
 
   const howItWorksSteps = [

@@ -19,6 +19,22 @@ export const getDeviceId = () => {
     return deviceId;
 };
 
+// LocalStorage Helpers
+const getLocalData = (key: string, defaultVal: any) => {
+    if (typeof window === "undefined") return defaultVal;
+    try {
+        const val = localStorage.getItem(`pp_${key}`);
+        return val ? JSON.parse(val) : defaultVal;
+    } catch {
+        return defaultVal;
+    }
+};
+
+const setLocalData = (key: string, val: any) => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(`pp_${key}`, JSON.stringify(val));
+};
+
 const buildHeaders = (extra?: HeadersInit, includeJson = false) => {
     const base: Record<string, string> = {
         "X-Device-Id": getDeviceId(),
@@ -73,73 +89,170 @@ export const apiFetch = fetchWithDevice;
 export const deviceHeaders = (includeJson = false, extra?: HeadersInit) =>
     buildHeaders(extra, includeJson);
 
+export const wakeBackend = async () => {
+    try {
+        notifyServerStarting();
+        const res = await fetch(`${API_URL}/health`, {
+            headers: buildHeaders(),
+            cache: "no-store",
+        });
+        if (res.ok) {
+            clearServerStarting();
+        }
+    } catch {
+        // Best-effort wakeup only
+    }
+};
+
+// ==========================================
+// LOCAL STORAGE MOCKS
+// ==========================================
+
 export const registerUser = async (data: any) => {
-    const res = await fetchWithDevice(`${API_URL}/api/users/register`, {
-        method: "POST",
-        headers: buildHeaders(undefined, true),
-        body: JSON.stringify(data),
-    });
-    return res.json();
+    setLocalData("userProfile", data);
+    return { success: true, user: data };
 };
 
 export const loginUser = async (data: any) => {
-    const res = await fetchWithDevice(`${API_URL}/api/users/login`, {
-        method: "POST",
-        headers: buildHeaders(undefined, true),
-        body: JSON.stringify(data),
-    });
-    return res.json();
+    const user = getLocalData("userProfile", null);
+    if (!user) throw new Error("No user found locally");
+    return { success: true, user };
 };
 
 export const getHabitTargets = async () => {
-    const res = await fetchWithDevice(`${API_URL}/api/users/habit-targets`, {
-        headers: buildHeaders(),
+    return getLocalData("habitTargets", {
+        sleep: 8,
+        study: 6,
+        exercise: 1,
+        foodQuality: 7,
+        mood: 7,
+        stress: 5,
     });
-    return res.json();
 };
 
 export const getDailyReminder = async () => {
-    const res = await fetchWithDevice(`${API_URL}/api/daily-log/reminder`, {
-        headers: buildHeaders(),
-    });
-    return res.json();
+    return { message: "Stay consistent! You're doing great." };
 };
+
 export const trackEvent = async (data: {
     eventType: string;
     courseId?: string;
     resourceId?: string;
     metadata?: any;
 }) => {
-    try {
-        const res = await fetchWithDevice(
-            `${API_URL}/api/events/track`,
-            {
-                method: "POST",
-                headers: {
-                    ...buildHeaders(undefined, true),
-                },
-                body: JSON.stringify(data),
-            }
-        );
-        const result = await res.json();
-        console.log("Event tracked:", data.eventType, result);
-        return result;
-    } catch (error) {
-        console.error("Failed to track event:", error);
-    }
+    const events = getLocalData("events", []);
+    events.push({ ...data, timestamp: new Date().toISOString() });
+    setLocalData("events", events);
+    return { success: true };
 };
 
 export const getUserEvents = async () => {
-    try {
-        const res = await fetchWithDevice(`${API_URL}/api/events`, {
-            headers: buildHeaders(),
-        });
-        return res.json();
-    } catch (error) {
-        console.error("Failed to fetch events:", error);
-        return [];
-    }
+    return getLocalData("events", []);
 };
+
+export const addCourse = async (data: any) => {
+    const courses = getLocalData("courses", []);
+    const newCourse = { ...data, _id: crypto.randomUUID() };
+    courses.push(newCourse);
+    setLocalData("courses", courses);
+    return newCourse;
+};
+
+export const getCourses = async () => {
+    return getLocalData("courses", []);
+};
+
+export const getCoursesList = async () => {
+    return getLocalData("courses", []);
+};
+
+export const logCourseActivity = async (courseId: string, data: any) => {
+    const courses = getLocalData("courses", []);
+    const courseIndex = courses.findIndex((c: any) => c._id === courseId);
+    if (courseIndex !== -1) {
+        courses[courseIndex] = { ...courses[courseIndex], ...data };
+        setLocalData("courses", courses);
+        return courses[courseIndex];
+    }
+    return null;
+};
+
+export const logHabit = async (data: any) => {
+    const habits = getLocalData("habits", []);
+    const today = new Date().toISOString().split("T")[0];
+    const existingIndex = habits.findIndex((h: any) => h.date === today);
+    if (existingIndex !== -1) {
+        habits[existingIndex] = { ...habits[existingIndex], ...data };
+    } else {
+        habits.push({ ...data, date: today });
+    }
+    setLocalData("habits", habits);
+    return { success: true };
+};
+
+export const submitTodayLog = async (data: any) => {
+    return logHabit(data);
+};
+
+export const getRecentHabits = async () => {
+    const habits = getLocalData("habits", []);
+    // Return last 7 days sorted descending
+    const today = new Date().toISOString().split('T')[0];
+    const sevenDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    return habits
+        .filter((h: any) => h.date >= sevenDaysAgo && h.date <= today)
+        .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+};
+
+export const getTodayHabit = async () => {
+    return getRecentHabits(); 
+};
+
+export const fetchWeeklySummary = async () => {
+    const habits = await getRecentHabits();
+    if (habits.length === 0) return { count: 0 };
+    
+    const summary = habits.reduce((acc: any, h: any) => {
+        acc.sleep += Number(h.sleep) || 0;
+        acc.study += Number(h.study) || 0;
+        acc.exercise += Number(h.exercise) || 0;
+        acc.entertainment += Number(h.entertainment) || 0;
+        acc.mood += Number(h.mood) || 0;
+        acc.foodQuality += Number(h.foodQuality) || 0;
+        return acc;
+    }, { sleep: 0, study: 0, exercise: 0, entertainment: 0, mood: 0, foodQuality: 0, count: habits.length });
+
+    return {
+        sleep: (summary.sleep / summary.count).toFixed(1),
+        study: (summary.study / summary.count).toFixed(1),
+        exercise: (summary.exercise / summary.count).toFixed(1),
+        entertainment: (summary.entertainment / summary.count).toFixed(1),
+        mood: (summary.mood / summary.count).toFixed(1),
+        count: summary.count
+    };
+};
+
+export const getWeeklyLogs = async () => {
+    return getRecentHabits();
+};
+
+export const getStreak = async () => {
+    const habits = getLocalData("habits", []);
+    return { streak: habits.length > 0 ? habits.length : 0 };
+};
+
+export const getStreakAndBadges = async () => {
+    return { streak: 0, badges: [] };
+};
+
+export const getBurnoutRisk = async () => {
+    return { level: "low", message: "You are doing great!" };
+};
+
+// ==========================================
+// AI & BACKEND CALLS
+// ==========================================
+
 export async function fetchResources(query: string, courseId: string) {
     const res = await fetchWithDevice(
         `${API_URL}/api/resources/fetch?query=${encodeURIComponent(
@@ -154,58 +267,6 @@ export async function fetchResources(query: string, courseId: string) {
 
     return res.json();
 }
-
-
-
-
-
-export const addCourse = async (data: any) => {
-    const res = await fetchWithDevice(`${API_URL}/api/courses/add`, {
-        method: "POST",
-        headers: buildHeaders(undefined, true),
-        body: JSON.stringify(data),
-    });
-    return res.json();
-};
-
-export const getCourses = async () => {
-    const res = await fetchWithDevice(`${API_URL}/api/courses`, {
-        headers: buildHeaders(),
-    });
-    return res.json();
-};
-
-export const logCourseActivity = async (courseId: string, data: any) => {
-    const res = await fetchWithDevice(`${API_URL}/api/courses/${courseId}/log-activity`, {
-        method: "POST",
-        headers: buildHeaders(undefined, true),
-        body: JSON.stringify(data),
-    });
-    return res.json();
-};
-
-export const logHabit = async (data: any) => {
-    const res = await fetchWithDevice(`${API_URL}/api/habits/log`, {
-        method: "POST",
-        headers: buildHeaders(undefined, true),
-        body: JSON.stringify(data),
-    });
-    return res.json();
-};
-
-export const getRecentHabits = async () => {
-    const res = await fetchWithDevice(`${API_URL}/api/habits/recent`, {
-        headers: buildHeaders(),
-    });
-    return res.json();
-};
-
-export const fetchWeeklySummary = async () => {
-    const res = await fetchWithDevice(`${API_URL}/api/analytics/weekly`, {
-        headers: buildHeaders(),
-    });
-    return res.json();
-};
 
 export const getAIAdvice = async (data: any) => {
     const aiServiceUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || API_URL;
@@ -231,29 +292,6 @@ export const getAnalyticsInsights = async (summary: any, logs: any[]) => {
     return res.json();
 };
 
-export const getTodayHabit = async () => {
-    const res = await fetchWithDevice(`${API_URL}/api/habits/recent`, {
-        headers: buildHeaders(),
-    });
-    return res.json();
-};
-
-
-
-export const getCoursesList = async () => {
-    return getCourses(); // reuse course fetch helper
-};
-
-export const wakeBackend = async () => {
-    try {
-        await fetch(`${API_URL}/health`, {
-            headers: buildHeaders(),
-            cache: "no-store",
-        });
-    } catch {
-        // Best-effort wakeup only
-    }
-};
 export const generateRoadmap = async (courseId: string) => {
     const res = await fetchWithDevice(
         `${API_URL}/api/roadmap/generate/${courseId}`,
@@ -332,49 +370,6 @@ export const autoAdaptRoadmap = async (courseId: string) => {
         throw new Error(data.message || "AI needs more data.");
     }
     return data;
-};
-
-export const submitTodayLog = async (data: any) => {
-    const res = await fetchWithDevice(
-        `${API_URL}/api/daily-log/today`,
-        {
-            method: "POST",
-            headers: buildHeaders(undefined, true),
-            body: JSON.stringify(data),
-        }
-    );
-    return res.json();
-};
-
-export const getWeeklyLogs = async () => {
-    const res = await fetchWithDevice(
-        `${API_URL}/api/daily-log/week`,
-        {
-            headers: buildHeaders(),
-        }
-    );
-    return res.json();
-};
-
-export const getStreak = async () => {
-    const res = await fetchWithDevice(`${API_URL}/api/streak`, {
-        headers: buildHeaders(),
-    });
-    return res.json();
-};
-
-export const getStreakAndBadges = async () => {
-    const res = await fetchWithDevice(`${API_URL}/api/streak/badges`, {
-        headers: buildHeaders(),
-    });
-    return res.json();
-};
-
-export const getBurnoutRisk = async () => {
-    const res = await fetchWithDevice(`${API_URL}/api/streak/burnout`, {
-        headers: buildHeaders(),
-    });
-    return res.json();
 };
 
 // Search API
