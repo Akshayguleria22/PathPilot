@@ -16,6 +16,7 @@ import searchRoutes from "./routes/searchRoutes.js";
 import aiRoutes from "./routes/airoutes.js";
 import aiAnalyticsRoutes from "./routes/aiAnalyticsRoutes.js";
 import goalAIRoutes from "./routes/goalAiRoutes.js";
+import aiServiceRoutes from "./routes/aiServiceRoutes.js";
 dotenv.config();
 connectDB();
 
@@ -75,6 +76,7 @@ app.use("/api/streak", streakRoutes);
 app.use("/api/search", searchRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/ai/analytics", aiAnalyticsRoutes);
+app.use("/api/ai-service", aiServiceRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {

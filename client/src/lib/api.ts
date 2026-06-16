@@ -289,8 +289,7 @@ export async function fetchResources(query: string, courseId: string) {
 }
 
 export const getAIAdvice = async (data: any) => {
-    const aiServiceUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || API_URL;
-    const res = await fetch(`${aiServiceUrl}/analyze`, {
+    const res = await fetch(`${API_URL}/api/ai-service/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -317,8 +316,7 @@ export const generateRoadmap = async (courseId: string) => {
     const course = courses.find((c: any) => c._id === courseId);
     if (!course) throw new Error("Course not found");
 
-    const aiServiceUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || API_URL;
-    const res = await fetch(`${aiServiceUrl}/generate-roadmap`, {
+    const res = await fetch(`${API_URL}/api/ai-service/generate-roadmap`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -400,8 +398,7 @@ export const getAIRoadmapAdvice = async (courseId: string) => {
 
     const completed = roadmap.steps.filter((s: any) => s.status === "completed").length;
 
-    const aiServiceUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || API_URL;
-    const res = await fetch(`${aiServiceUrl}/adapt-roadmap`, {
+    const res = await fetch(`${API_URL}/api/ai-service/adapt-roadmap`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

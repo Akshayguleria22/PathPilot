@@ -1,11 +1,10 @@
 import express from "express";
-import axios from "axios";
 import Roadmap from "../models/Roadmap.js";
 import Course from "../models/Course.js";
 import { protect } from "../middleware/auth.js";
 import Assessment from "../models/Assessment.js";
 import { generateRoadmap } from "../services/aiRoadmapService.js";
-import { getAiServiceUrl } from "../utils/urlHelper.js";
+import { adaptRoadmapLogic, weeklySummaryLogic } from "../controllers/aiServiceController.js";
 
 const router = express.Router();
 
@@ -30,18 +29,15 @@ router.post("/adapt/:courseId", protect, async (req, res) => {
 
         const completed = roadmap.steps.filter(s => s.status === "completed").length;
 
-        const aiRes = await axios.post(
-            `${getAiServiceUrl()}/adapt-roadmap`,
-            {
-                course_name: "Course",
-                completed_steps: completed,
-                total_steps: roadmap.steps.length,
-                score: assessment.score,
-                confidence: assessment.confidence,
-            }
-        );
+        const aiRes = await adaptRoadmapLogic({
+            course_name: "Course",
+            completed_steps: completed,
+            total_steps: roadmap.steps.length,
+            score: assessment.score,
+            confidence: assessment.confidence,
+        });
 
-        const actions = aiRes.data.actions || [];
+        const actions = aiRes.actions || [];
 
         console.log(`📊 Received ${actions.length} actions from AI:`, actions);
 
@@ -207,25 +203,16 @@ router.get("/adapt/:courseId", protect, async (req, res) => {
 
         const completed = roadmap.steps.filter(s => s.status === "completed").length;
 
-        const aiRes = await axios.post(
-            `${getAiServiceUrl()}/adapt-roadmap`,
-            {
-                course_name: "Course",
-                completed_steps: completed,
-                total_steps: roadmap.steps.length,
-                score: assessment.score,
-                confidence: assessment.confidence,
-            },
-            {
-                timeout: 30000,
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
+        const aiRes = await adaptRoadmapLogic({
+            course_name: "Course",
+            completed_steps: completed,
+            total_steps: roadmap.steps.length,
+            score: assessment.score,
+            confidence: assessment.confidence,
+        });
 
-        console.log(`✅ Received adaptation advice:`, aiRes.data);
-        res.json(aiRes.data);
+        console.log(`✅ Received adaptation advice:`, aiRes);
+        res.json(aiRes);
     } catch (error) {
         console.error("❌ Error getting roadmap adaptation:", {
             message: error.message,
@@ -264,21 +251,18 @@ router.get("/weekly-summary/:courseId", protect, async (req, res) => {
         const avgStudy = 2.5;
         const avgSleep = 6.5;
 
-        const aiRes = await axios.post(
-            `${getAiServiceUrl()}/weekly-summary`,
-            {
-                course_name: "Course",
-                progress,
-                completed_steps: completed,
-                total_steps: roadmap.steps.length,
-                avg_study_hours: avgStudy,
-                avg_sleep_hours: avgSleep,
-                score: assessment.score,
-                confidence: assessment.confidence,
-            }
-        );
+        const aiRes = await weeklySummaryLogic({
+            course_name: "Course",
+            progress,
+            completed_steps: completed,
+            total_steps: roadmap.steps.length,
+            avg_study_hours: avgStudy,
+            avg_sleep_hours: avgSleep,
+            score: assessment.score,
+            confidence: assessment.confidence,
+        });
 
-        res.json(aiRes.data);
+        res.json(aiRes);
     } catch (error) {
         console.error("Error getting weekly summary:", error);
         res.status(500).json({ 
@@ -295,11 +279,10 @@ router.post("/generate/:courseId", protect, async (req, res) => {
         if (!course) return res.status(404).json({ message: "Course not found" });
 
         // Check if AI service is available
-        const aiServiceUrl = getAiServiceUrl();
-        if (!aiServiceUrl) {
+        if (!process.env.GROQ_API_KEY) {
             return res.status(503).json({
-                message: "AI service URL not configured. Please contact administrator.",
-                details: "The AI_SERVICE_URL environment variable is not set."
+                message: "AI service not configured. Please contact administrator.",
+                details: "GROQ_API_KEY is not set."
             });
         }
 

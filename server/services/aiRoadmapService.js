@@ -1,55 +1,50 @@
-import axios from "axios";
-import { getAiServiceUrl } from "../utils/urlHelper.js";
+import { getLLMResponse } from "./llmService.js";
 
 export const generateRoadmap = async (courseName) => {
     try {
-        const aiServiceUrl = getAiServiceUrl();
-
-        if (!aiServiceUrl) {
-            throw new Error("AI service URL is not configured. Please set AI_SERVICE_URL environment variable.");
+        if (!process.env.GROQ_API_KEY) {
+            throw new Error("AI service unavailable: GROQ_API_KEY not configured");
         }
 
-        console.log(`🔄 Requesting roadmap for "${courseName}" from ${aiServiceUrl}`);
+        const prompt = `
+You are an expert learning architect.
 
-        const res = await axios.post(
-            `${aiServiceUrl}/generate-roadmap`,
-            {
-                course_name: courseName,
-                user_level: "beginner"
-            },
-            {
-                timeout: 60000, // 60 second timeout
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
+Create a structured learning roadmap for:
+Course: ${courseName}
+Level: beginner
 
-        console.log(`✅ Successfully received roadmap with ${res.data?.steps?.length || 0} steps`);
-        return res.data;
+Return ONLY valid JSON:
+{
+  "steps": [
+    {
+      "title": "",
+      "description": "",
+      "difficulty": "beginner|intermediate|advanced",
+      "estimatedHours": number,
+      "topics": []
+    }
+  ]
+}
+No explanations. No markdown.
+`;
 
+        console.log(`🔄 Generating roadmap for: "${courseName}"`);
+
+        const content = await getLLMResponse(prompt);
+        console.log("✅ Received response from GROQ");
+
+        // Parse and validate JSON
+        const result = JSON.parse(content);
+
+        if (!result.steps || !Array.isArray(result.steps)) {
+            console.error("⚠️  Invalid response format: missing 'steps' field");
+            throw new Error("Invalid AI response format");
+        }
+
+        console.log(`✅ Successfully generated roadmap with ${result.steps.length} steps`);
+        return result;
     } catch (error) {
-        console.error(`❌ Error calling AI service:`, {
-            message: error.message,
-            code: error.code,
-            status: error.response?.status,
-            statusText: error.response?.statusText,
-            data: error.response?.data
-        });
-
-        // Provide more specific error messages
-        if (error.code === 'ECONNREFUSED') {
-            throw new Error(`AI service is not reachable at ${getAiServiceUrl()}. Please check if the service is running.`);
-        } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
-            throw new Error('AI service request timed out. The service might be overloaded or down.');
-        } else if (error.response?.status === 502) {
-            throw new Error('AI service returned Bad Gateway (502). The service might be starting up or experiencing issues.');
-        } else if (error.response?.status === 503) {
-            throw new Error(error.response?.data?.detail || 'AI service is temporarily unavailable.');
-        } else if (error.response?.status >= 500) {
-            throw new Error(`AI service error: ${error.response?.data?.detail || error.message}`);
-        }
-
+        console.error(`❌ Error generating roadmap: ${error.message}`);
         throw error;
     }
 };
